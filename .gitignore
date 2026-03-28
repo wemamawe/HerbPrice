@@ -1,0 +1,29 @@
+# 数据库（体积过大）
+data/*.db
+data/*.db-shm
+data/*.db-wal
+
+# 日志
+data/cron.log
+
+# 图片缓存
+data/*.png
+data/*.jpg
+
+# Python 缓存
+__pycache__/
+*.pyc
+*.pyo
+
+# 虚拟环境
+.venv/
+venv/
+
+# macOS
+.DS_Store
+__MACOSX/
+
+# IDE / codebuddy
+.codebuddy/
+.idea/
+.vscode/
