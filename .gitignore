@@ -1,5 +1,6 @@
-# 数据库（体积过大）
+# 数据库（体积过大，sample.db 除外）
 data/*.db
+!data/sample.db
 data/*.db-shm
 data/*.db-wal
 
