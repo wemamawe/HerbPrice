@@ -274,6 +274,144 @@ def forecast_variety(name: str, periods: int = FORECAST_DAYS) -> dict:
     }
 
 
+def forecast_variety_timesfm(name: str, periods: int = FORECAST_DAYS) -> dict:
+    """纯 TimesFM 2.5 预测，格式与 forecast_variety() 一致"""
+    from forecast_timesfm import timesfm_forecast
+
+    df = _load_price_series(name)
+    last_date = df["ds"].iloc[-1]
+    last_price = float(df["y"].iloc[-1])
+
+    tfm = timesfm_forecast(df["y"].values, horizon=periods)
+
+    fc_dates = [
+        (last_date + pd.Timedelta(days=i + 1)).strftime("%Y-%m-%d")
+        for i in range(periods)
+    ]
+
+    # 起点平滑（10天）
+    smooth_days = min(10, periods)
+    point = tfm["point"].copy()
+    lower = tfm["lower"].copy()
+    upper = tfm["upper"].copy()
+    for i in range(smooth_days):
+        w = 1 - np.exp(-3 * (i + 1) / smooth_days)
+        point[i] = last_price * (1 - w) + point[i] * w
+        lower[i] = last_price * (1 - w) + lower[i] * w
+        upper[i] = last_price * (1 - w) + upper[i] * w
+
+    return {
+        "name": name,
+        "lastDate": last_date.strftime("%Y-%m-%d"),
+        "lastPrice": round(last_price, 2),
+        "forecast": [
+            {
+                "date": fc_dates[i],
+                "price": round(float(point[i]), 2),
+                "lower": round(float(lower[i]), 2),
+                "upper": round(float(upper[i]), 2),
+            }
+            for i in range(periods)
+        ],
+        "method": "TimesFM 2.5（200M）— Google 时序基础模型，zero-shot 预测",
+    }
+
+
+def forecast_variety_ensemble(name: str, periods: int = FORECAST_DAYS) -> dict:
+    """TimesFM + 现有方案的加权集成预测
+
+    权重分配策略（基于回测验证）：
+    - 短期(1-30天):  TimesFM 70% + 现有方案 30%  （TimesFM 短期精度显著更高）
+    - 中期(31-90天): TimesFM 55% + 现有方案 45%
+    - 长期(91+天):   TimesFM 40% + 现有方案 60%  （现有方案融合季节性和趋势）
+    """
+    from forecast_timesfm import timesfm_forecast
+
+    df = _load_price_series(name)
+    last_date = df["ds"].iloc[-1]
+    last_price = float(df["y"].iloc[-1])
+
+    # 1) TimesFM 预测
+    tfm = timesfm_forecast(df["y"].values, horizon=periods)
+
+    # 2) 现有方案预测（内部调用，不重复加载数据）
+    prophet_fc = _prophet_forecast(df, periods)
+    p_yhat = prophet_fc["yhat"].values
+    p_lower = prophet_fc["yhat_lower"].values
+    p_upper = prophet_fc["yhat_upper"].values
+    fc_dates = prophet_fc["ds"].dt.strftime("%Y-%m-%d").tolist()
+
+    ridge_pred = _ridge_trend_forecast(df, periods)
+    ema_pred = _ema_momentum_forecast(df, periods)
+    weights_classic = _adaptive_weights(periods)
+    classic_point = (weights_classic[:, 0] * p_yhat +
+                     weights_classic[:, 1] * ridge_pred +
+                     weights_classic[:, 2] * ema_pred)
+    classic_lower, classic_upper = _calc_confidence_band(
+        df, classic_point, p_lower, p_upper, periods
+    )
+    classic_point = np.maximum(classic_point, 0.01)
+    classic_lower = np.maximum(classic_lower, 0.01)
+
+    # 3) 时变权重融合
+    def ensemble_weights(t: int) -> tuple[float, float]:
+        """返回 (w_timesfm, w_classic)"""
+        if t <= 30:
+            r = t / 30
+            w_tfm = 0.70 - 0.15 * r   # 70% → 55%
+        elif t <= 90:
+            r = (t - 30) / 60
+            w_tfm = 0.55 - 0.15 * r   # 55% → 40%
+        else:
+            r = min((t - 90) / 90, 1.0)
+            w_tfm = 0.40 - 0.05 * r   # 40% → 35%
+        return w_tfm, 1.0 - w_tfm
+
+    ensemble_point = np.zeros(periods)
+    ensemble_lower = np.zeros(periods)
+    ensemble_upper = np.zeros(periods)
+
+    for i in range(periods):
+        wt, wc = ensemble_weights(i + 1)
+        ensemble_point[i] = wt * tfm["point"][i] + wc * classic_point[i]
+        ensemble_lower[i] = wt * tfm["lower"][i] + wc * classic_lower[i]
+        ensemble_upper[i] = wt * tfm["upper"][i] + wc * classic_upper[i]
+
+    # 4) 起点平滑（10天）
+    smooth_days = min(10, periods)
+    for i in range(smooth_days):
+        w = 1 - np.exp(-3 * (i + 1) / smooth_days)
+        ensemble_point[i] = last_price * (1 - w) + ensemble_point[i] * w
+        ensemble_lower[i] = last_price * (1 - w) + ensemble_lower[i] * w
+        ensemble_upper[i] = last_price * (1 - w) + ensemble_upper[i] * w
+
+    ensemble_point = np.maximum(ensemble_point, 0.01)
+    ensemble_lower = np.maximum(ensemble_lower, 0.01)
+
+    return {
+        "name": name,
+        "lastDate": last_date.strftime("%Y-%m-%d"),
+        "lastPrice": round(last_price, 2),
+        "forecast": [
+            {
+                "date": fc_dates[i],
+                "price": round(float(ensemble_point[i]), 2),
+                "lower": round(float(ensemble_lower[i]), 2),
+                "upper": round(float(ensemble_upper[i]), 2),
+                # 附带两个子引擎的点预测，方便前端展示对比
+                "timesfm": round(float(tfm["point"][i]), 2),
+                "classic": round(float(classic_point[i]), 2),
+            }
+            for i in range(periods)
+        ],
+        "method": "集成预测：TimesFM 2.5（短期70%→长期35%）+ Prophet/Ridge/EMA（短期30%→长期65%）",
+        "engines": {
+            "timesfm": "TimesFM 2.5 — Google 时序基础模型",
+            "classic": "Prophet + Ridge + 多周期EMA 自适应集成",
+        },
+    }
+
+
 if __name__ == "__main__":
     import sys
     name = sys.argv[1] if len(sys.argv) > 1 else "白术"

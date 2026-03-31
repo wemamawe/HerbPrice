@@ -2,11 +2,11 @@
 
 from flask import Flask, jsonify, request, send_from_directory
 from db import get_connection
-from forecast import forecast_variety
+from forecast import forecast_variety, forecast_variety_timesfm, forecast_variety_ensemble
 
 app = Flask(__name__, static_folder="static")
 
-# 预测结果缓存 {name: {result, timestamp}}
+# 预测结果缓存 {cache_key: {result, timestamp}}
 _forecast_cache: dict = {}
 
 
@@ -107,26 +107,56 @@ def api_k_value():
 
 @app.route("/api/forecast")
 def api_forecast():
-    """预测指定品种未来半年的价格趋势"""
+    """预测指定品种未来半年的价格趋势
+
+    Query params:
+        name    (必填) 品种名称
+        engine  (选填) classic | timesfm | ensemble（默认 ensemble）
+    """
     import time
     name = request.args.get("name", "")
+    engine = request.args.get("engine", "ensemble").lower()
+
     if not name:
         return jsonify({"error": "缺少 name 参数"}), 400
+    if engine not in ("classic", "timesfm", "ensemble"):
+        return jsonify({"error": "engine 参数无效，可选: classic / timesfm / ensemble"}), 400
 
-    # 缓存检查（同一品种6小时内复用）
-    cache_ttl = 6 * 3600
-    cached = _forecast_cache.get(name)
+    # 缓存键包含引擎类型；classic 缓存 6h，timesfm/ensemble 缓存 12h
+    cache_ttl = 6 * 3600 if engine == "classic" else 12 * 3600
+    cache_key = f"{name}:{engine}"
+    cached = _forecast_cache.get(cache_key)
     if cached and (time.time() - cached["timestamp"]) < cache_ttl:
         return jsonify(cached["result"])
 
     try:
-        result = forecast_variety(name)
-        _forecast_cache[name] = {"result": result, "timestamp": time.time()}
+        if engine == "classic":
+            result = forecast_variety(name)
+        elif engine == "timesfm":
+            result = forecast_variety_timesfm(name)
+        else:
+            result = forecast_variety_ensemble(name)
+
+        result["engine"] = engine
+        _forecast_cache[cache_key] = {"result": result, "timestamp": time.time()}
         return jsonify(result)
+
     except ValueError as e:
         return jsonify({"error": str(e)}), 404
     except Exception as e:
-        return jsonify({"error": f"预测失败: {str(e)}"}), 500
+        import traceback
+        return jsonify({"error": f"预测失败: {str(e)}", "detail": traceback.format_exc()}), 500
+
+
+@app.route("/api/model_status")
+def api_model_status():
+    """查询 TimesFM 模型加载状态"""
+    try:
+        from forecast_timesfm import is_model_loaded
+        loaded = is_model_loaded()
+    except Exception:
+        loaded = False
+    return jsonify({"timesfm_loaded": loaded})
 
 
 if __name__ == "__main__":
