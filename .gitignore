@@ -11,6 +11,10 @@ data/cron.log
 data/*.png
 data/*.jpg
 
+# 数据目录（含嵌套 git 仓库）
+data/medical_dialogue/
+data/tcm_books/
+
 # Python 缓存
 __pycache__/
 *.pyc

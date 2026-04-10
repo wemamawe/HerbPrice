@@ -3,417 +3,507 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>本草价鉴 · 药材价格趋势</title>
+<title>药材价格趋势</title>
 <script src="https://cdn.jsdelivr.net/npm/echarts@5/dist/echarts.min.js"></script>
 <style>
   :root {
-    --bg: #0f172a;
-    --card: #1e293b;
-    --border: #334155;
-    --text: #e2e8f0;
-    --text-dim: #94a3b8;
-    --accent: #3b82f6;
-    --orange: #f97316;
-    --green: #22c55e;
-    --red: #ef4444;
-    --purple: #a855f7;
-    --teal: #14b8a6;
-    --yellow: #eab308;
+    --bg: #0a0f1a;
+    --bg-subtle: #111827;
+    --card: #151d2e;
+    --card-hover: #1a2438;
+    --border: #1f2d44;
+    --border-hover: #2a3f5f;
+    --text: #e8edf5;
+    --text-dim: #7b8ba5;
+    --text-muted: #4a5568;
+    --accent: #4f8fff;
+    --accent-dim: rgba(79,143,255,0.12);
+    --orange: #ff8c42;
+    --orange-dim: rgba(255,140,66,0.12);
+    --green: #34d399;
+    --green-dim: rgba(52,211,153,0.12);
+    --red: #f87171;
+    --red-dim: rgba(248,113,113,0.12);
+    --purple: #a78bfa;
+    --purple-dim: rgba(167,139,250,0.12);
+    --shadow-sm: 0 1px 3px rgba(0,0,0,0.3);
+    --shadow-md: 0 4px 16px rgba(0,0,0,0.4);
+    --shadow-lg: 0 8px 40px rgba(0,0,0,0.5);
+    --radius: 14px;
+    --radius-sm: 10px;
   }
+
   * { margin: 0; padding: 0; box-sizing: border-box; }
+
   body {
-    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+    font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'Segoe UI', system-ui, sans-serif;
     background: var(--bg); color: var(--text); min-height: 100vh;
+    -webkit-font-smoothing: antialiased;
   }
-  .container { max-width: 1280px; margin: 0 auto; padding: 20px; }
-  header { text-align: center; padding: 24px 0 16px; }
-  header h1 { font-size: 24px; font-weight: 600; letter-spacing: 1px; }
-  header p { color: var(--text-dim); font-size: 13px; margin-top: 6px; }
+
+  .container { max-width: 1280px; margin: 0 auto; padding: 24px 28px; }
+
+  /* ── Header ── */
+  header {
+    text-align: center; padding: 32px 0 28px; position: relative;
+  }
+  header::before {
+    content: '';
+    position: absolute; top: -80px; left: 50%; transform: translateX(-50%);
+    width: 600px; height: 300px;
+    background: radial-gradient(ellipse, rgba(79,143,255,0.08) 0%, transparent 70%);
+    pointer-events: none;
+  }
+  header h1 {
+    font-size: 28px; font-weight: 700; letter-spacing: 0.5px;
+    background: linear-gradient(135deg, #fff 0%, #a0c4ff 100%);
+    -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+  header p {
+    color: var(--text-dim); font-size: 13px; margin-top: 8px;
+    letter-spacing: 0.3px;
+  }
 
   /* ── Controls ── */
   .controls {
-    display: flex; gap: 12px; align-items: end; flex-wrap: wrap;
-    background: var(--card); border: 1px solid var(--border);
-    border-radius: 12px; padding: 16px 20px; margin-bottom: 14px;
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 20px 24px;
+    margin-bottom: 20px;
+    box-shadow: var(--shadow-sm);
   }
-  .field { display: flex; flex-direction: column; gap: 5px; }
-  .field label { font-size: 11px; color: var(--text-dim); font-weight: 500;
-    text-transform: uppercase; letter-spacing: 0.5px; }
+  .controls-row {
+    display: flex; gap: 16px; align-items: end; flex-wrap: wrap;
+  }
+  .field { display: flex; flex-direction: column; gap: 6px; }
+  .field label {
+    font-size: 11px; color: var(--text-dim); font-weight: 600;
+    text-transform: uppercase; letter-spacing: 0.8px;
+  }
   .field.grow { flex: 1; min-width: 200px; }
 
   .search-wrap { position: relative; }
-  .search-wrap input, input[type="date"] {
-    background: var(--bg); border: 1px solid var(--border); border-radius: 8px;
-    color: var(--text); padding: 9px 13px; font-size: 14px; outline: none; transition: border-color 0.2s;
+  .search-wrap input {
+    width: 100%; background: var(--bg-subtle); border: 1px solid var(--border);
+    border-radius: var(--radius-sm); color: var(--text); padding: 10px 14px;
+    font-size: 14px; outline: none; transition: all 0.2s;
   }
-  .search-wrap input { width: 100%; }
-  .search-wrap input:focus, input[type="date"]:focus { border-color: var(--accent); }
-  ::-webkit-calendar-picker-indicator { filter: invert(0.7); }
+  .search-wrap input:focus {
+    border-color: var(--accent);
+    box-shadow: 0 0 0 3px var(--accent-dim);
+  }
+  .search-wrap input::placeholder { color: var(--text-muted); }
+
   .dropdown {
-    position: absolute; top: 100%; left: 0; right: 0; z-index: 200;
-    background: var(--card); border: 1px solid var(--border); border-radius: 8px;
-    max-height: 320px; overflow-y: auto; display: none; margin-top: 4px;
-    box-shadow: 0 8px 32px rgba(0,0,0,0.5);
+    position: absolute; top: 100%; left: 0; right: 0; z-index: 100;
+    background: var(--card); border: 1px solid var(--border-hover);
+    border-radius: var(--radius-sm);
+    max-height: 340px; overflow-y: auto; display: none; margin-top: 6px;
+    box-shadow: var(--shadow-lg);
+    scrollbar-width: thin; scrollbar-color: var(--border) transparent;
   }
   .dropdown.show { display: block; }
   .dropdown-item {
-    padding: 9px 14px; cursor: pointer; font-size: 14px;
-    display: flex; justify-content: space-between; align-items: center; transition: background 0.15s;
+    padding: 10px 14px; cursor: pointer; font-size: 14px;
+    display: flex; justify-content: space-between; align-items: center;
+    transition: all 0.12s; border-bottom: 1px solid rgba(255,255,255,0.03);
   }
-  .dropdown-item:hover, .dropdown-item.active { background: var(--accent); border-radius: 4px; }
-  .dropdown-item .meta { font-size: 11px; color: var(--text-dim); }
-  .dropdown-item:hover .meta { color: rgba(255,255,255,0.7); }
+  .dropdown-item:last-child { border-bottom: none; }
+  .dropdown-item:hover { background: var(--accent-dim); }
+  .dropdown-item.active { background: var(--accent); color: #fff; }
+  .dropdown-item .meta { font-size: 11px; color: var(--text-dim); font-variant-numeric: tabular-nums; }
+  .dropdown-item:hover .meta { color: var(--accent); }
+  .dropdown-item.active .meta { color: rgba(255,255,255,0.7); }
 
-  /* ── Buttons ── */
-  .btn-row { display: flex; gap: 6px; align-items: end; }
-  .btn {
-    background: var(--bg); border: 1px solid var(--border); border-radius: 8px;
-    color: var(--text-dim); padding: 9px 13px; font-size: 13px; cursor: pointer;
-    transition: all 0.2s; white-space: nowrap;
+  input[type="date"] {
+    background: var(--bg-subtle); border: 1px solid var(--border);
+    border-radius: var(--radius-sm); color: var(--text);
+    padding: 10px 14px; font-size: 14px; outline: none; transition: all 0.2s;
   }
-  .btn:hover { border-color: var(--accent); color: var(--text); }
-  .btn.active-blue { background: var(--accent); border-color: var(--accent); color: #fff; }
-  .btn.active-purple { background: var(--purple); border-color: var(--purple); color: #fff; }
-  .btn.disabled { opacity: 0.45; pointer-events: none; }
+  input[type="date"]:focus {
+    border-color: var(--accent);
+    box-shadow: 0 0 0 3px var(--accent-dim);
+  }
+  ::-webkit-calendar-picker-indicator { filter: invert(0.6); cursor: pointer; }
 
-  /* ── Engine selector ── */
-  .engine-row {
-    display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
-    background: var(--card); border: 1px solid var(--border);
-    border-radius: 10px; padding: 10px 16px; margin-bottom: 14px;
+  /* ── Button Group (pills) ── */
+  .btn-group {
+    display: flex; align-items: center; gap: 0;
+    background: var(--bg-subtle); border: 1px solid var(--border);
+    border-radius: var(--radius-sm); overflow: hidden;
   }
-  .engine-row .label { font-size: 12px; color: var(--text-dim); margin-right: 4px; }
-  .engine-btn {
-    border: 1px solid var(--border); border-radius: 6px; padding: 5px 12px;
-    font-size: 12px; cursor: pointer; background: var(--bg); color: var(--text-dim);
-    transition: all 0.2s;
+  .preset-btn {
+    background: transparent; border: none; border-right: 1px solid var(--border);
+    color: var(--text-dim); padding: 10px 14px; font-size: 13px; cursor: pointer;
+    transition: all 0.15s; white-space: nowrap; font-weight: 500;
   }
-  .engine-btn:hover { border-color: var(--purple); color: var(--purple); }
-  .engine-btn.active { border-color: var(--purple); background: rgba(168,85,247,0.15); color: var(--purple); }
-  .engine-sep { color: var(--border); font-size: 16px; }
-  .model-badge {
-    margin-left: auto; font-size: 11px; color: var(--text-dim);
-    display: flex; align-items: center; gap: 5px;
+  .preset-btn:last-child { border-right: none; }
+  .preset-btn:hover { background: rgba(255,255,255,0.04); color: var(--text); }
+  .preset-btn.active {
+    background: var(--accent); color: #fff;
+    box-shadow: inset 0 1px 0 rgba(255,255,255,0.1);
   }
-  .model-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--border); }
-  .model-dot.loaded { background: var(--green); }
-  .model-dot.loading { background: var(--yellow); animation: pulse 1s infinite; }
-  @keyframes pulse { 0%,100% { opacity:1; } 50% { opacity:0.4; } }
 
-  /* ── Chart card ── */
+  .forecast-btn {
+    background: transparent; border: 1px solid var(--purple);
+    border-radius: var(--radius-sm); color: var(--purple);
+    padding: 10px 18px; font-size: 13px; font-weight: 600;
+    cursor: pointer; transition: all 0.2s; white-space: nowrap;
+    letter-spacing: 0.3px;
+  }
+  .forecast-btn:hover { background: var(--purple); color: #fff; box-shadow: 0 0 16px rgba(167,139,250,0.3); }
+  .forecast-btn.active { background: var(--purple); color: #fff; box-shadow: 0 0 16px rgba(167,139,250,0.3); }
+  .forecast-btn.loading { opacity: 0.5; pointer-events: none; }
+
+  /* ── Chart Card ── */
   .chart-card {
     background: var(--card); border: 1px solid var(--border);
-    border-radius: 12px; padding: 20px; position: relative;
+    border-radius: var(--radius); padding: 24px;
+    position: relative; box-shadow: var(--shadow-md);
   }
+  .chart-header {
+    display: flex; justify-content: space-between; align-items: center;
+    margin-bottom: 16px; padding-bottom: 16px;
+    border-bottom: 1px solid var(--border);
+  }
+  .chart-title {
+    display: flex; align-items: center; gap: 12px;
+  }
+  .chart-title h2 {
+    font-size: 18px; font-weight: 600; color: var(--text);
+  }
+  .chart-title .badge {
+    display: inline-flex; align-items: center; gap: 4px;
+    background: var(--accent-dim); color: var(--accent); border: 1px solid rgba(79,143,255,0.2);
+    border-radius: 20px; padding: 3px 10px; font-size: 11px; font-weight: 500;
+  }
+  .chart-meta {
+    font-size: 12px; color: var(--text-dim);
+  }
+
   #chart { width: 100%; height: 520px; }
+
   .loading-overlay {
-    position: absolute; inset: 0; display: none; align-items: center; justify-content: center;
-    background: rgba(15,23,42,0.88); border-radius: 12px; z-index: 10;
-    flex-direction: column; gap: 12px;
+    position: absolute; inset: 0; display: none;
+    align-items: center; justify-content: center;
+    background: rgba(10,15,26,0.85); backdrop-filter: blur(4px);
+    border-radius: var(--radius); z-index: 10;
+    flex-direction: column; gap: 14px;
   }
   .loading-overlay.show { display: flex; }
   .spinner {
-    width: 36px; height: 36px; border: 3px solid var(--border);
-    border-top-color: var(--accent); border-radius: 50%; animation: spin 0.8s linear infinite;
+    width: 40px; height: 40px; border: 3px solid var(--border);
+    border-top-color: var(--accent); border-radius: 50%;
+    animation: spin 0.8s linear infinite;
   }
-  .loading-hint { color: var(--text-dim); font-size: 13px; }
+  .loading-overlay .hint { color: var(--text-dim); font-size: 13px; }
   @keyframes spin { to { transform: rotate(360deg); } }
 
-  /* ── Stats ── */
-  .stats { display: flex; gap: 12px; margin-top: 14px; flex-wrap: wrap; }
+  /* ── Stats Grid ── */
+  .stats {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(155px, 1fr));
+    gap: 14px; margin-top: 20px;
+  }
   .stat-card {
     background: var(--card); border: 1px solid var(--border);
-    border-radius: 10px; padding: 14px 18px; flex: 1; min-width: 110px;
+    border-radius: var(--radius-sm); padding: 18px 20px;
+    transition: all 0.2s; position: relative; overflow: hidden;
   }
-  .stat-card .lbl { font-size: 11px; color: var(--text-dim); margin-bottom: 3px; }
-  .stat-card .val { font-size: 18px; font-weight: 600; }
-  .val.green { color: var(--green); }
-  .val.red   { color: var(--red); }
-  .val.blue  { color: var(--accent); }
-  .val.orange{ color: var(--orange); }
-  .val.purple{ color: var(--purple); }
-  .val.teal  { color: var(--teal); }
-  .stat-card .sub { font-size: 11px; color: var(--text-dim); margin-top: 2px; }
+  .stat-card::before {
+    content: ''; position: absolute; top: 0; left: 0; right: 0; height: 2px;
+    background: var(--border); transition: background 0.2s;
+  }
+  .stat-card:hover {
+    border-color: var(--border-hover);
+    transform: translateY(-1px);
+    box-shadow: var(--shadow-sm);
+  }
+  .stat-card .label {
+    font-size: 11px; color: var(--text-dim); margin-bottom: 8px;
+    font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px;
+  }
+  .stat-card .value { font-size: 20px; font-weight: 700; font-variant-numeric: tabular-nums; }
+  .stat-card .value.green { color: var(--green); }
+  .stat-card .value.red { color: var(--red); }
+  .stat-card .value.blue { color: var(--accent); }
+  .stat-card .value.orange { color: var(--orange); }
+  .stat-card .value.purple { color: var(--purple); }
+  .stat-card .sub { font-size: 11px; color: var(--text-dim); margin-top: 4px; }
 
-  /* ── Compare panel ── */
-  .compare-panel {
-    display: none; background: var(--card); border: 1px solid rgba(168,85,247,0.3);
-    border-radius: 10px; padding: 14px 18px; margin-top: 14px;
-  }
-  .compare-panel.show { display: block; }
-  .compare-panel h3 { font-size: 13px; color: var(--purple); margin-bottom: 10px; }
-  .compare-table { width: 100%; border-collapse: collapse; font-size: 13px; }
-  .compare-table th { color: var(--text-dim); font-weight: 500; text-align: left; padding: 4px 10px 6px 0; }
-  .compare-table td { padding: 4px 10px 4px 0; color: var(--text); }
-  .compare-table tr.sep td { border-top: 1px solid var(--border); }
-  .tag-tfm  { color: var(--teal); }
-  .tag-cls  { color: var(--orange); }
-  .tag-ens  { color: var(--purple); }
+  /* 颜色顶线 */
+  .stat-card.c-blue::before { background: var(--accent); }
+  .stat-card.c-red::before { background: var(--red); }
+  .stat-card.c-green::before { background: var(--green); }
+  .stat-card.c-orange::before { background: var(--orange); }
+  .stat-card.c-purple::before { background: var(--purple); }
 
   .empty-state {
     display: flex; flex-direction: column; align-items: center; justify-content: center;
-    height: 520px; color: var(--text-dim);
+    height: 520px; color: var(--text-muted);
   }
-  .empty-state svg { width: 56px; height: 56px; margin-bottom: 14px; opacity: 0.35; }
+  .empty-state svg { width: 56px; height: 56px; margin-bottom: 16px; opacity: 0.3; }
+  .empty-state p { font-size: 14px; }
+
+  .method-badge {
+    display: inline-block; background: var(--purple-dim); color: var(--purple);
+    border: 1px solid rgba(167,139,250,0.25); border-radius: 6px;
+    padding: 4px 10px; font-size: 11px; margin-top: 8px;
+  }
+
+  /* ── Nav link ── */
+  .nav-link {
+    position: fixed; bottom: 24px; right: 24px; z-index: 50;
+    background: var(--card); border: 1px solid var(--border);
+    border-radius: 28px; padding: 10px 20px; font-size: 13px;
+    color: var(--text-dim); text-decoration: none; font-weight: 500;
+    transition: all 0.2s; box-shadow: var(--shadow-md);
+  }
+  .nav-link:hover { border-color: var(--accent); color: var(--accent); }
+
+  /* ── Scrollbar ── */
+  ::-webkit-scrollbar { width: 6px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+  ::-webkit-scrollbar-thumb:hover { background: var(--border-hover); }
+
+  /* ── Responsive ── */
+  @media (max-width: 768px) {
+    .container { padding: 16px; }
+    .controls-row { gap: 12px; }
+    .stats { grid-template-columns: repeat(2, 1fr); }
+    #chart { height: 400px; }
+    .chart-header { flex-direction: column; align-items: flex-start; gap: 8px; }
+  }
 </style>
 </head>
 <body>
 <div class="container">
   <header>
-    <h1>本草价鉴</h1>
+    <h1>药材价格趋势</h1>
     <p>覆盖 303 个品种 · 13 年历史数据 · 指数反推 + 实际价格 + AI 预测</p>
   </header>
 
-  <!-- Controls -->
   <div class="controls">
-    <div class="field grow">
-      <label>品种</label>
-      <div class="search-wrap">
-        <input type="text" id="searchInput" placeholder="搜索品种名称…" autocomplete="off">
-        <div class="dropdown" id="dropdown"></div>
+    <div class="controls-row">
+      <div class="field grow">
+        <label>品种</label>
+        <div class="search-wrap">
+          <input type="text" id="searchInput" placeholder="搜索品种名称…" autocomplete="off">
+          <div class="dropdown" id="dropdown"></div>
+        </div>
       </div>
-    </div>
-    <div class="field">
-      <label>开始日期</label>
-      <input type="date" id="startDate">
-    </div>
-    <div class="field">
-      <label>结束日期</label>
-      <input type="date" id="endDate">
-    </div>
-    <div class="field">
-      <label>时间范围</label>
-      <div class="btn-row">
-        <button class="btn" data-years="1">1年</button>
-        <button class="btn" data-years="3">3年</button>
-        <button class="btn active-blue" data-years="5">5年</button>
-        <button class="btn" data-years="10">10年</button>
-        <button class="btn" data-years="0">全部</button>
+      <div class="field">
+        <label>开始日期</label>
+        <input type="date" id="startDate">
       </div>
-    </div>
-    <div class="field">
-      <label>预测</label>
-      <button class="btn" id="forecastBtn" style="border-color:var(--purple);color:var(--purple)">
-        ✦ 预测未来180天
-      </button>
+      <div class="field">
+        <label>结束日期</label>
+        <input type="date" id="endDate">
+      </div>
+      <div class="field">
+        <label>时间范围</label>
+        <div class="btn-group">
+          <button class="preset-btn" data-years="1">1年</button>
+          <button class="preset-btn" data-years="3">3年</button>
+          <button class="preset-btn active" data-years="5">5年</button>
+          <button class="preset-btn" data-years="10">10年</button>
+          <button class="preset-btn" data-years="0">全部</button>
+        </div>
+      </div>
+      <div class="field">
+        <label>&nbsp;</label>
+        <button class="forecast-btn" id="forecastBtn" title="预测未来半年价格">AI 预测</button>
+      </div>
     </div>
   </div>
 
-  <!-- Engine selector（仅预测激活时显示） -->
-  <div class="engine-row" id="engineRow" style="display:none">
-    <span class="label">预测引擎：</span>
-    <button class="engine-btn active" data-engine="ensemble">🔀 集成（推荐）</button>
-    <span class="engine-sep">·</span>
-    <button class="engine-btn" data-engine="timesfm">🤖 TimesFM 2.5</button>
-    <span class="engine-sep">·</span>
-    <button class="engine-btn" data-engine="classic">📈 经典方案</button>
-    <div class="model-badge">
-      <div class="model-dot" id="modelDot"></div>
-      <span id="modelStatus">TimesFM 未加载</span>
-    </div>
-  </div>
-
-  <!-- Chart -->
   <div class="chart-card">
+    <div class="chart-header" id="chartHeader" style="display:none">
+      <div class="chart-title">
+        <h2 id="chartName">-</h2>
+        <span class="badge" id="chartBadge">-</span>
+      </div>
+      <div class="chart-meta" id="chartMeta">-</div>
+    </div>
     <div class="loading-overlay" id="loading">
       <div class="spinner"></div>
-      <div class="loading-hint" id="loadingHint">加载中…</div>
+      <div class="hint" id="loadingHint">加载中…</div>
     </div>
     <div id="chart">
       <div class="empty-state">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
           <path d="M3 3v18h18"/><path d="m7 14 4-4 4 4 5-5"/>
         </svg>
-        <p>选择品种开始查看价格趋势</p>
+        <p>选择一个品种开始查看价格趋势</p>
       </div>
     </div>
   </div>
 
-  <!-- Stats -->
   <div class="stats" id="stats" style="display:none">
-    <div class="stat-card"><div class="lbl">当前价格</div><div class="val blue" id="sCurrent">-</div></div>
-    <div class="stat-card"><div class="lbl">最高价格</div><div class="val red"  id="sMax">-</div></div>
-    <div class="stat-card"><div class="lbl">最低价格</div><div class="val green" id="sMin">-</div></div>
-    <div class="stat-card"><div class="lbl">区间涨跌</div><div class="val" id="sChange">-</div></div>
-    <div class="stat-card"><div class="lbl">数据天数</div><div class="val" id="sCount">-</div></div>
-    <div class="stat-card"><div class="lbl">K值偏差</div><div class="val orange" id="sKcv">-</div></div>
-    <div class="stat-card" id="sForecastCard" style="display:none">
-      <div class="lbl">180天末预测</div>
-      <div class="val purple" id="sForecast">-</div>
-      <div class="sub" id="sForecastSub">-</div>
+    <div class="stat-card c-blue"><div class="label">当前价格</div><div class="value blue" id="sCurrent">-</div></div>
+    <div class="stat-card c-red"><div class="label">最高价格</div><div class="value red" id="sMax">-</div></div>
+    <div class="stat-card c-green"><div class="label">最低价格</div><div class="value green" id="sMin">-</div></div>
+    <div class="stat-card"><div class="label">区间涨跌</div><div class="value" id="sChange">-</div></div>
+    <div class="stat-card"><div class="label">数据天数</div><div class="value" id="sCount">-</div></div>
+    <div class="stat-card c-orange"><div class="label">K值偏差</div><div class="value orange" id="sKcv">-</div></div>
+    <div class="stat-card c-purple" id="sForecastCard" style="display:none">
+      <div class="label">半年预测</div>
+      <div class="value purple" id="sForecast">-</div>
+      <div class="sub" id="sForecastRange">-</div>
     </div>
-  </div>
-
-  <!-- Compare panel（集成模式下展示子引擎对比） -->
-  <div class="compare-panel" id="comparePanel">
-    <h3>📊 引擎对比（集成模式）</h3>
-    <table class="compare-table">
-      <tr>
-        <th>时间节点</th>
-        <th class="tag-ens">集成预测</th>
-        <th class="tag-tfm">TimesFM</th>
-        <th class="tag-cls">经典方案</th>
-        <th>80%区间</th>
-      </tr>
-      <tbody id="compareBody"></tbody>
-    </table>
   </div>
 </div>
 
-<script>
-// ─── State ────────────────────────────────────────────
-const $ = id => document.getElementById(id);
-let varieties = [], selectedName = '', chart = null;
-let activeYears = 5, showForecast = false, currentEngine = 'ensemble';
-let forecastCache = {};   // key: `${name}:${engine}`
+<a href="/tcm" class="nav-link">中医方剂分析 →</a>
 
-// ─── Init ─────────────────────────────────────────────
+<script>
+const searchInput = document.getElementById('searchInput');
+const dropdown = document.getElementById('dropdown');
+const startDate = document.getElementById('startDate');
+const endDate = document.getElementById('endDate');
+const loadingEl = document.getElementById('loading');
+const loadingHint = document.getElementById('loadingHint');
+const statsEl = document.getElementById('stats');
+const forecastBtn = document.getElementById('forecastBtn');
+const chartHeader = document.getElementById('chartHeader');
+
+let varieties = [];
+let selectedName = '';
+let chart = null;
+let activePreset = 5;
+let forecastData = null;
+let showForecast = false;
+
 async function init() {
   const resp = await fetch('/api/varieties');
   varieties = await resp.json();
-  $('endDate').value = fmt(new Date());
-  setYears(5);
-  selectVariety('白术');
-  pollModelStatus();
+  const today = new Date();
+  endDate.value = fmt(today);
+  setPreset(5);
+  const urlParams = new URLSearchParams(window.location.search);
+  const nameParam = urlParams.get('name') || '白术';
+  const autoForecast = urlParams.get('forecast') === '1';
+  selectVariety(nameParam);
+  if (autoForecast) {
+    setTimeout(() => forecastBtn.click(), 500);
+  }
 }
 
 function fmt(d) { return d.toISOString().slice(0, 10); }
 
-// ─── Model status polling ──────────────────────────────
-async function pollModelStatus() {
-  try {
-    const r = await fetch('/api/model_status');
-    const data = await r.json();
-    const dot = $('modelDot');
-    const lbl = $('modelStatus');
-    if (data.timesfm_loaded) {
-      dot.className = 'model-dot loaded';
-      lbl.textContent = 'TimesFM 已就绪';
-    } else {
-      dot.className = 'model-dot';
-      lbl.textContent = 'TimesFM 未加载';
-    }
-  } catch {}
-  setTimeout(pollModelStatus, 5000);
-}
-
-// ─── Year presets ─────────────────────────────────────
-function setYears(y) {
-  activeYears = y;
-  document.querySelectorAll('[data-years]').forEach(b => {
-    b.classList.toggle('active-blue', parseInt(b.dataset.years) === y);
+function setPreset(years) {
+  activePreset = years;
+  document.querySelectorAll('.preset-btn').forEach(b => {
+    b.classList.toggle('active', parseInt(b.dataset.years) === years);
   });
   const today = new Date();
-  $('endDate').value = fmt(today);
-  if (y === 0) { $('startDate').value = '2013-04-16'; }
-  else { const d = new Date(today); d.setFullYear(d.getFullYear() - y); $('startDate').value = fmt(d); }
+  endDate.value = fmt(today);
+  if (years === 0) {
+    startDate.value = '2013-04-16';
+  } else {
+    const d = new Date(today);
+    d.setFullYear(d.getFullYear() - years);
+    startDate.value = fmt(d);
+  }
 }
-
-document.querySelectorAll('[data-years]').forEach(btn => {
-  btn.addEventListener('click', () => { setYears(parseInt(btn.dataset.years)); if (selectedName) loadChart(); });
-});
-$('startDate').addEventListener('change', () => { document.querySelectorAll('[data-years]').forEach(b => b.classList.remove('active-blue')); if (selectedName) loadChart(); });
-$('endDate').addEventListener('change',   () => { document.querySelectorAll('[data-years]').forEach(b => b.classList.remove('active-blue')); if (selectedName) loadChart(); });
-
-// ─── Variety search ───────────────────────────────────
-const searchInput = $('searchInput'), dropdown = $('dropdown');
 
 searchInput.addEventListener('focus', () => renderDropdown(searchInput.value));
 searchInput.addEventListener('input', () => renderDropdown(searchInput.value));
-document.addEventListener('click', e => { if (!e.target.closest('.search-wrap')) dropdown.classList.remove('show'); });
+document.addEventListener('click', (e) => {
+  if (!e.target.closest('.search-wrap')) dropdown.classList.remove('show');
+});
 
 function renderDropdown(q) {
-  const list = q ? varieties.filter(v => v.name.includes(q)) : varieties;
-  if (!list.length) {
+  const filtered = q ? varieties.filter(v => v.name.includes(q)) : varieties;
+  if (!filtered.length) {
     dropdown.innerHTML = '<div class="dropdown-item" style="color:var(--text-dim)">无匹配结果</div>';
   } else {
-    dropdown.innerHTML = list.slice(0, 60).map(v =>
+    dropdown.innerHTML = filtered.slice(0, 50).map(v =>
       `<div class="dropdown-item${v.name === selectedName ? ' active' : ''}" data-name="${v.name}">
         <span>${v.name}</span>
-        <span class="meta">${v.minDate.slice(0,4)}~${v.maxDate.slice(0,4)} · ${v.count}天</span>
-       </div>`
+        <span class="meta">${v.minDate.slice(0,4)}–${v.maxDate.slice(0,4)} · ${v.count}天</span>
+      </div>`
     ).join('');
   }
   dropdown.classList.add('show');
-  dropdown.querySelectorAll('[data-name]').forEach(el =>
-    el.addEventListener('click', () => { selectVariety(el.dataset.name); dropdown.classList.remove('show'); })
-  );
+  dropdown.querySelectorAll('.dropdown-item[data-name]').forEach(el => {
+    el.addEventListener('click', () => {
+      selectVariety(el.dataset.name);
+      dropdown.classList.remove('show');
+    });
+  });
 }
 
 function selectVariety(name) {
   selectedName = name;
   searchInput.value = name;
-  forecastCache = {};
+  forecastData = null;
   showForecast = false;
-  $('forecastBtn').classList.remove('active-purple');
-  $('forecastBtn').style.borderColor = 'var(--purple)';
-  $('forecastBtn').style.color = 'var(--purple)';
-  $('engineRow').style.display = 'none';
-  $('comparePanel').classList.remove('show');
-  $('sForecastCard').style.display = 'none';
+  forecastBtn.classList.remove('active');
   loadChart();
 }
 
-// ─── Forecast button ──────────────────────────────────
-$('forecastBtn').addEventListener('click', async () => {
-  if (!selectedName) return;
-  showForecast = !showForecast;
-  $('forecastBtn').classList.toggle('active-purple', showForecast);
-  $('forecastBtn').style.borderColor = '';
-  $('forecastBtn').style.color = '';
-  $('engineRow').style.display = showForecast ? 'flex' : 'none';
-  if (!showForecast) {
-    $('comparePanel').classList.remove('show');
-    $('sForecastCard').style.display = 'none';
-  }
-  await loadChart();
-});
-
-// ─── Engine selector ──────────────────────────────────
-document.querySelectorAll('.engine-btn').forEach(btn => {
-  btn.addEventListener('click', async () => {
-    if (btn.dataset.engine === currentEngine) return;
-    document.querySelectorAll('.engine-btn').forEach(b => b.classList.remove('active'));
-    btn.classList.add('active');
-    currentEngine = btn.dataset.engine;
-    await loadChart();
+document.querySelectorAll('.preset-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    setPreset(parseInt(btn.dataset.years));
+    if (selectedName) loadChart();
   });
 });
 
-// ─── Fetch forecast (with cache) ─────────────────────
-async function fetchForecast(name, engine) {
-  const key = `${name}:${engine}`;
-  if (forecastCache[key]) return forecastCache[key];
+startDate.addEventListener('change', () => {
+  document.querySelectorAll('.preset-btn').forEach(b => b.classList.remove('active'));
+  if (selectedName) loadChart();
+});
+endDate.addEventListener('change', () => {
+  document.querySelectorAll('.preset-btn').forEach(b => b.classList.remove('active'));
+  if (selectedName) loadChart();
+});
 
-  setLoading(true, engine === 'classic'
-    ? '运行经典预测模型（Prophet + Ridge + EMA）…'
-    : engine === 'timesfm'
-    ? '运行 TimesFM 2.5 时序基础模型（首次加载约10s）…'
-    : '运行集成预测（TimesFM + Prophet + Ridge + EMA）…');
+forecastBtn.addEventListener('click', async () => {
+  if (!selectedName) return;
+  showForecast = !showForecast;
+  forecastBtn.classList.toggle('active', showForecast);
 
-  // 标记 TimesFM 模型正在加载
-  if (engine !== 'classic') {
-    $('modelDot').className = 'model-dot loading';
-    $('modelStatus').textContent = '模型加载中…';
+  if (showForecast && !forecastData) {
+    forecastBtn.classList.add('loading');
+    forecastBtn.textContent = '计算中…';
+    setLoading(true, '正在运行预测模型，请稍候…');
+    try {
+      const resp = await fetch(`/api/forecast?name=${encodeURIComponent(selectedName)}`);
+      if (!resp.ok) throw new Error('预测请求失败');
+      forecastData = await resp.json();
+    } catch (e) {
+      forecastData = null;
+      showForecast = false;
+      forecastBtn.classList.remove('active');
+    }
+    forecastBtn.classList.remove('loading');
+    forecastBtn.textContent = 'AI 预测';
+    setLoading(false);
   }
 
-  const resp = await fetch(`/api/forecast?name=${encodeURIComponent(name)}&engine=${engine}`);
-  setLoading(false);
+  loadChart();
+});
 
-  if (!resp.ok) { console.error('forecast failed'); return null; }
-  const data = await resp.json();
-  forecastCache[key] = data;
-  return data;
+function setLoading(on, hint) {
+  if (on) {
+    loadingHint.textContent = hint || '加载中…';
+    loadingEl.classList.add('show');
+  } else {
+    loadingEl.classList.remove('show');
+  }
 }
 
-// ─── Main loadChart ───────────────────────────────────
 async function loadChart() {
   if (!selectedName) return;
   setLoading(true);
 
   const params = new URLSearchParams({ name: selectedName });
-  if ($('startDate').value) params.set('start', $('startDate').value);
-  if ($('endDate').value)   params.set('end',   $('endDate').value);
+  if (startDate.value) params.set('start', startDate.value);
+  if (endDate.value) params.set('end', endDate.value);
 
   const [priceResp, kResp] = await Promise.all([
     fetch(`/api/prices?${params}`),
@@ -421,255 +511,272 @@ async function loadChart() {
   ]);
   const priceData = await priceResp.json();
   const kData = await kResp.json();
+
+  renderChart(priceData, kData, showForecast ? forecastData : null);
+  renderStats(priceData, kData, showForecast ? forecastData : null);
   setLoading(false);
-
-  let fcData = null;
-  if (showForecast) {
-    fcData = await fetchForecast(selectedName, currentEngine);
-  }
-
-  renderChart(priceData, kData, fcData);
-  renderStats(priceData, kData, fcData);
-  renderCompare(fcData);
 }
 
-// ─── Loading helper ───────────────────────────────────
-function setLoading(on, hint) {
-  if (on) { $('loadingHint').textContent = hint || '加载中…'; $('loading').classList.add('show'); }
-  else { $('loading').classList.remove('show'); }
-}
-
-// ─── Render chart ─────────────────────────────────────
 function renderChart(priceData, kData, fc) {
-  const el = $('chart');
+  const el = document.getElementById('chart');
   el.innerHTML = '';
-  if (chart) { chart.dispose(); }
-  chart = echarts.init(el, 'dark');
-  window.addEventListener('resize', () => chart?.resize());
+  if (!chart) {
+    chart = echarts.init(el, 'dark');
+    window.addEventListener('resize', () => chart?.resize());
+  } else {
+    chart.dispose();
+    chart = echarts.init(el, 'dark');
+  }
 
   const { data } = priceData;
   if (!data.length) {
     el.innerHTML = '<div class="empty-state"><p>该时间范围内无数据</p></div>';
-    chart = null; return;
+    chart = null;
+    chartHeader.style.display = 'none';
+    return;
   }
 
-  // 分拆 estimated / actual
-  const estD = [], estP = [], actD = [], actP = [];
+  // 更新图表标题
+  chartHeader.style.display = 'flex';
+  document.getElementById('chartName').textContent = selectedName;
+  const variety = varieties.find(v => v.name === selectedName);
+  document.getElementById('chartBadge').textContent = `${data.length} 天数据`;
+  document.getElementById('chartMeta').textContent =
+    `${data[0].date} → ${data[data.length-1].date}` +
+    (kData ? ` · K=${kData.kValue}` : '');
+
+  // 拆分 estimated / actual
+  const estDates = [], estPrices = [], actDates = [], actPrices = [];
   let switchIdx = -1;
   data.forEach((d, i) => {
-    if (d.source === 'actual') { if (switchIdx < 0) switchIdx = i; actD.push(d.date); actP.push(d.price); }
-    else { estD.push(d.date); estP.push(d.price); }
+    if (d.source === 'actual') {
+      if (switchIdx < 0) switchIdx = i;
+      actDates.push(d.date);
+      actPrices.push(d.price);
+    } else {
+      estDates.push(d.date);
+      estPrices.push(d.price);
+    }
   });
-  if (actD.length && estD.length) { estD.push(actD[0]); estP.push(actP[0]); }
+  if (actDates.length && estDates.length) {
+    estDates.push(actDates[0]);
+    estPrices.push(actPrices[0]);
+  }
 
   let allDates = data.map(d => d.date);
-  let fcDates = [], fcPoint = [], fcLower = [], fcUpper = [];
-  let fcTfm = [], fcCls = [];
+  let fcDates = [], fcPrices = [], fcLower = [], fcUpper = [];
 
-  if (fc?.forecast) {
-    fc.forecast.forEach(f => { if (!allDates.includes(f.date)) allDates.push(f.date); });
+  if (fc && fc.forecast) {
     fc.forecast.forEach(f => {
-      fcDates.push(f.date); fcPoint.push(f.price);
-      fcLower.push(f.lower); fcUpper.push(f.upper);
-      if (f.timesfm != null) fcTfm.push(f.timesfm);
-      if (f.classic  != null) fcCls.push(f.classic);
+      if (!allDates.includes(f.date)) allDates.push(f.date);
+      fcDates.push(f.date);
+      fcPrices.push(f.price);
+      fcLower.push(f.lower);
+      fcUpper.push(f.upper);
     });
   }
 
-  // 衔接桥接（从历史最后一点连到预测第一点）
-  const bridgify = (vals) => {
-    const bridge = [data[data.length - 1].price, ...vals];
-    const bridgeDates = [data[data.length - 1].date, ...fcDates];
-    return allDates.map(d => { const i = bridgeDates.indexOf(d); return i >= 0 ? bridge[i] : null; });
-  };
-
   const legendData = ['估算价格', '实际价格'];
-  if (fc) { legendData.push('预测中位线'); }
-  if (fc && fcTfm.length) legendData.push('TimesFM');
-  if (fc && fcCls.length) legendData.push('经典方案');
+  if (fc) legendData.push('预测价格');
 
   const option = {
     backgroundColor: 'transparent',
     tooltip: {
-      trigger: 'axis', backgroundColor: 'rgba(15,23,42,0.95)',
-      borderColor: '#334155', textStyle: { color: '#e2e8f0', fontSize: 13 },
-      formatter: params => {
-        let html = `<b>${params[0]?.axisValue || ''}</b>`;
+      trigger: 'axis',
+      backgroundColor: 'rgba(21,29,46,0.96)',
+      borderColor: 'rgba(255,255,255,0.08)',
+      borderWidth: 1,
+      textStyle: { color: '#e8edf5', fontSize: 13 },
+      extraCssText: 'border-radius: 10px; box-shadow: 0 8px 32px rgba(0,0,0,0.5); backdrop-filter: blur(8px);',
+      formatter: (params) => {
+        let html = `<div style="font-weight:600;margin-bottom:6px">${params[0]?.axisValue || ''}</div>`;
         params.forEach(p => {
           if (p.value == null) return;
-          if (['置信上界','置信下界'].includes(p.seriesName)) return;
-          const c = p.color || '#fff';
-          html += `<br/><span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:${c};margin-right:6px"></span>${p.seriesName}：¥${p.value}`;
+          if (p.seriesName === '置信上界' || p.seriesName === '置信下界') return;
+          html += `<div style="display:flex;align-items:center;gap:6px;margin:3px 0">`;
+          html += `<span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:${p.color}"></span>`;
+          html += `<span style="color:var(--text-dim)">${p.seriesName}</span>`;
+          html += `<span style="font-weight:600;margin-left:auto">¥${p.value}</span></div>`;
         });
-        const lo = params.find(p => p.seriesName === '置信下界');
-        const hi = params.find(p => p.seriesName === '置信上界');
-        if (lo?.value != null && hi?.value != null) html += `<br/><span style="color:#64748b">80%区间：¥${lo.value} ~ ¥${hi.value}</span>`;
+        const lowerP = params.find(p => p.seriesName === '置信下界');
+        const upperP = params.find(p => p.seriesName === '置信上界');
+        if (lowerP?.value != null && upperP?.value != null) {
+          html += `<div style="color:#7b8ba5;font-size:12px;margin-top:4px">80% 置信区间：¥${lowerP.value} ~ ¥${upperP.value}</div>`;
+        }
         return html;
       }
     },
-    legend: { data: legendData, top: 8, right: 20, textStyle: { color: '#94a3b8' } },
-    grid: { left: 64, right: 32, top: 50, bottom: 62 },
+    legend: {
+      data: legendData, top: 4, right: 16,
+      textStyle: { color: '#7b8ba5', fontSize: 12 },
+      itemWidth: 12, itemHeight: 8, itemGap: 20,
+    },
+    grid: { left: 60, right: 30, top: 42, bottom: 60 },
     xAxis: {
       type: 'category', data: allDates,
-      axisLabel: { color: '#64748b', formatter: v => v.slice(0,7), interval: Math.max(Math.floor(allDates.length / 14), 1) },
-      axisLine: { lineStyle: { color: '#334155' } }, splitLine: { show: false },
+      axisLabel: {
+        color: '#4a5568', formatter: v => v.slice(0, 7), fontSize: 11,
+        interval: Math.max(Math.floor(allDates.length / 14), 1),
+      },
+      axisLine: { lineStyle: { color: '#1f2d44' } },
+      axisTick: { lineStyle: { color: '#1f2d44' } },
+      splitLine: { show: false },
     },
     yAxis: {
-      type: 'value', name: '元/kg', nameTextStyle: { color: '#64748b' },
-      axisLabel: { color: '#64748b', formatter: '¥{value}' },
-      axisLine: { show: false }, splitLine: { lineStyle: { color: '#1e293b' } },
+      type: 'value', name: '元/kg',
+      nameTextStyle: { color: '#4a5568', fontSize: 11 },
+      axisLabel: { color: '#4a5568', formatter: '¥{value}', fontSize: 11 },
+      axisLine: { show: false },
+      splitLine: { lineStyle: { color: 'rgba(255,255,255,0.04)', type: 'dashed' } },
     },
     dataZoom: [
       { type: 'inside', start: 0, end: 100 },
-      { type: 'slider', start: 0, end: 100, height: 24, bottom: 10,
-        borderColor: '#334155', backgroundColor: '#0f172a', fillerColor: 'rgba(59,130,246,0.15)',
-        handleStyle: { color: '#3b82f6' }, textStyle: { color: '#64748b' },
-        dataBackground: { lineStyle: { color: '#334155' }, areaStyle: { color: 'rgba(59,130,246,0.05)' } } }
+      {
+        type: 'slider', start: 0, end: 100, height: 24, bottom: 8,
+        borderColor: 'transparent', backgroundColor: 'rgba(255,255,255,0.02)',
+        fillerColor: 'rgba(79,143,255,0.12)',
+        handleStyle: { color: '#4f8fff', borderColor: '#4f8fff' },
+        textStyle: { color: '#4a5568', fontSize: 11 },
+        dataBackground: {
+          lineStyle: { color: '#1f2d44' },
+          areaStyle: { color: 'rgba(79,143,255,0.04)' },
+        },
+      }
     ],
     series: [],
   };
 
   // 估算价格
   option.series.push({
-    name: '估算价格', type: 'line', symbol: 'none',
-    data: allDates.map(d => { const i = estD.indexOf(d); return i >= 0 ? estP[i] : null; }),
-    lineStyle: { color: '#3b82f6', width: 1.8 },
-    areaStyle: { color: new echarts.graphic.LinearGradient(0,0,0,1,[{offset:0,color:'rgba(59,130,246,0.12)'},{offset:1,color:'rgba(59,130,246,0)'}]) },
+    name: '估算价格', type: 'line',
+    data: allDates.map(d => { const i = estDates.indexOf(d); return i >= 0 ? estPrices[i] : null; }),
+    symbol: 'none', smooth: 0.2,
+    lineStyle: { color: '#4f8fff', width: 2 },
+    areaStyle: {
+      color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [
+        { offset: 0, color: 'rgba(79,143,255,0.18)' },
+        { offset: 1, color: 'rgba(79,143,255,0)' },
+      ]),
+    },
     connectNulls: false,
   });
+
   // 实际价格
   option.series.push({
-    name: '实际价格', type: 'line', symbol: 'none',
-    data: allDates.map(d => { const i = actD.indexOf(d); return i >= 0 ? actP[i] : null; }),
-    lineStyle: { color: '#f97316', width: 1.8 },
-    areaStyle: { color: new echarts.graphic.LinearGradient(0,0,0,1,[{offset:0,color:'rgba(249,115,22,0.12)'},{offset:1,color:'rgba(249,115,22,0)'}]) },
+    name: '实际价格', type: 'line',
+    data: allDates.map(d => { const i = actDates.indexOf(d); return i >= 0 ? actPrices[i] : null; }),
+    symbol: 'none', smooth: 0.2,
+    lineStyle: { color: '#ff8c42', width: 2 },
+    areaStyle: {
+      color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [
+        { offset: 0, color: 'rgba(255,140,66,0.18)' },
+        { offset: 1, color: 'rgba(255,140,66,0)' },
+      ]),
+    },
     connectNulls: false,
   });
 
-  // ── 预测系列 ──
-  if (fc?.forecast) {
-    // 置信区间
-    option.series.push({
-      name: '置信上界', type: 'line', symbol: 'none',
-      data: bridgify(fcUpper), lineStyle: { opacity: 0 }, connectNulls: false,
-      stack: 'conf', z: 2,
-    });
-    option.series.push({
-      name: '置信下界', type: 'line', symbol: 'none',
-      data: bridgify(fcLower), lineStyle: { opacity: 0 },
-      areaStyle: { color: 'rgba(168,85,247,0.10)' }, connectNulls: false,
-      stack: 'conf', z: 2,
-    });
+  // 预测
+  if (fc && fc.forecast) {
+    const bridgeDates = [data[data.length - 1].date, ...fcDates];
+    const bridgePrices = [data[data.length - 1].price, ...fcPrices];
+    const bridgeLower = [data[data.length - 1].price, ...fcLower];
+    const bridgeUpper = [data[data.length - 1].price, ...fcUpper];
 
-    // 集成/选定引擎的中位线
     option.series.push({
-      name: '预测中位线', type: 'line', symbol: 'none', z: 6,
-      data: bridgify(fcPoint),
-      lineStyle: { color: '#a855f7', width: 2.5, type: 'dashed' },
-      connectNulls: false,
+      name: '预测价格', type: 'line',
+      data: allDates.map(d => { const i = bridgeDates.indexOf(d); return i >= 0 ? bridgePrices[i] : null; }),
+      symbol: 'none', smooth: 0.2,
+      lineStyle: { color: '#a78bfa', width: 2.5, type: 'dashed' },
+      connectNulls: false, z: 5,
     });
 
-    // 集成模式下的子引擎对比线
-    if (fcTfm.length) {
-      option.series.push({
-        name: 'TimesFM', type: 'line', symbol: 'none', z: 5,
-        data: bridgify(fcTfm),
-        lineStyle: { color: '#14b8a6', width: 1.5, type: 'dotted' },
-        connectNulls: false,
-      });
-    }
-    if (fcCls.length) {
-      option.series.push({
-        name: '经典方案', type: 'line', symbol: 'none', z: 5,
-        data: bridgify(fcCls),
-        lineStyle: { color: '#f97316', width: 1.5, type: 'dotted', opacity: 0.6 },
-        connectNulls: false,
-      });
-    }
+    option.series.push({
+      name: '置信上界', type: 'line',
+      data: allDates.map(d => { const i = bridgeDates.indexOf(d); return i >= 0 ? bridgeUpper[i] : null; }),
+      symbol: 'none', lineStyle: { opacity: 0 }, connectNulls: false, stack: 'confidence', z: 2,
+    });
+    option.series.push({
+      name: '置信下界', type: 'line',
+      data: allDates.map(d => { const i = bridgeDates.indexOf(d); return i >= 0 ? bridgeLower[i] : null; }),
+      symbol: 'none', lineStyle: { opacity: 0 },
+      areaStyle: { color: 'rgba(167,139,250,0.1)' },
+      connectNulls: false, z: 2,
+    });
+    option.legend.data = legendData;
+    option.legend.selected = { '置信上界': true, '置信下界': true };
 
-    // 预测起点标记
+    const forecastStart = fc.forecast[0].date;
     option.series.push({
       type: 'line', data: [], markLine: {
         silent: true, symbol: 'none',
-        lineStyle: { color: '#a855f7', type: 'dashed', width: 1 },
-        label: { show: true, formatter: '← 预测区间', color: '#a855f7', fontSize: 11, position: 'insideEndTop' },
-        data: [{ xAxis: fc.forecast[0].date }],
+        lineStyle: { color: 'rgba(167,139,250,0.5)', type: 'dashed', width: 1 },
+        label: { show: true, formatter: '← 预测区间', color: '#a78bfa', fontSize: 11, position: 'insideEndTop' },
+        data: [{ xAxis: forecastStart }],
       },
     });
-
-    // 自动滚动到显示最近1年 + 预测区间
-    const totalLen = allDates.length, histLen = data.length;
-    const startPct = Math.max(0, (histLen - 365) / totalLen * 100);
-    setTimeout(() => chart?.dispatchAction({ type: 'dataZoom', start: startPct, end: 100 }), 50);
   }
 
   // 估算/实际分界线
-  if (switchIdx > 0) {
+  if (switchIdx > 0 && switchIdx < data.length - 1) {
     option.series.push({
       type: 'line', data: [], markLine: {
         silent: true, symbol: 'none',
-        lineStyle: { color: '#475569', type: 'dashed', width: 1 },
-        label: { show: true, formatter: '实际 →', color: '#64748b', fontSize: 10, position: 'insideStartTop' },
+        lineStyle: { color: 'rgba(255,255,255,0.08)', type: 'dashed', width: 1 },
+        label: { show: true, formatter: '实际数据 →', color: '#4a5568', fontSize: 11, position: 'insideStartTop' },
         data: [{ xAxis: allDates[switchIdx] }],
       },
     });
   }
 
-  option.legend.selected = { '置信上界': true, '置信下界': true };
   chart.setOption(option);
+
+  if (fc && fc.forecast) {
+    const totalLen = allDates.length;
+    const histLen = data.length;
+    const startPct = Math.max(0, (histLen - 365) / totalLen * 100);
+    chart.dispatchAction({ type: 'dataZoom', start: startPct, end: 100 });
+  }
 }
 
-// ─── Render stats ─────────────────────────────────────
 function renderStats(priceData, kData, fc) {
   const { data } = priceData;
-  if (!data.length) { $('stats').style.display = 'none'; return; }
-  $('stats').style.display = 'flex';
+  if (!data.length) { statsEl.style.display = 'none'; return; }
 
+  statsEl.style.display = 'grid';
   const prices = data.map(d => d.price);
   const first = prices[0], last = prices[prices.length - 1];
-  const ch = last - first, chPct = (ch / first * 100).toFixed(1);
+  const change = last - first;
+  const changePct = (change / first * 100).toFixed(1);
 
-  $('sCurrent').textContent = `¥${last.toFixed(1)}`;
-  $('sMax').textContent = `¥${Math.max(...prices).toFixed(1)}`;
-  $('sMin').textContent = `¥${Math.min(...prices).toFixed(1)}`;
-  const chEl = $('sChange');
-  chEl.textContent = `${ch >= 0 ? '+' : ''}${ch.toFixed(1)} (${ch >= 0 ? '+' : ''}${chPct}%)`;
-  chEl.className = `val ${ch >= 0 ? 'red' : 'green'}`;
-  $('sCount').textContent = `${data.length} 天`;
-  $('sKcv').textContent = kData ? `CV ${kData.kCv}%` : '-';
+  document.getElementById('sCurrent').textContent = `¥${last.toFixed(1)}`;
+  document.getElementById('sMax').textContent = `¥${Math.max(...prices).toFixed(1)}`;
+  document.getElementById('sMin').textContent = `¥${Math.min(...prices).toFixed(1)}`;
 
-  if (fc?.forecast?.length) {
-    $('sForecastCard').style.display = '';
-    const lf = fc.forecast[fc.forecast.length - 1];
-    const fch = lf.price - last, fchPct = (fch / last * 100).toFixed(1);
-    $('sForecast').textContent = `¥${lf.price} (${fch >= 0 ? '+' : ''}${fchPct}%)`;
-    $('sForecastSub').textContent = `80%区间 ¥${lf.lower} ~ ¥${lf.upper}`;
+  const changeEl = document.getElementById('sChange');
+  changeEl.textContent = `${change >= 0 ? '+' : ''}${change.toFixed(1)} (${change >= 0 ? '+' : ''}${changePct}%)`;
+  changeEl.className = `value ${change >= 0 ? 'red' : 'green'}`;
+
+  // 动态设置涨跌卡片的顶线颜色
+  const changeCard = changeEl.closest('.stat-card');
+  changeCard.className = `stat-card ${change >= 0 ? 'c-red' : 'c-green'}`;
+
+  document.getElementById('sCount').textContent = `${data.length} 天`;
+  document.getElementById('sKcv').textContent = kData ? `CV ${kData.kCv}%` : '-';
+
+  const fcCard = document.getElementById('sForecastCard');
+  if (fc && fc.forecast && fc.forecast.length) {
+    fcCard.style.display = '';
+    const lastFc = fc.forecast[fc.forecast.length - 1];
+    const fcChange = lastFc.price - last;
+    const fcPct = (fcChange / last * 100).toFixed(1);
+    document.getElementById('sForecast').textContent =
+      `¥${lastFc.price} (${fcChange >= 0 ? '+' : ''}${fcPct}%)`;
+    document.getElementById('sForecastRange').textContent =
+      `80%区间: ¥${lastFc.lower} ~ ¥${lastFc.upper}`;
   } else {
-    $('sForecastCard').style.display = 'none';
+    fcCard.style.display = 'none';
   }
-}
-
-// ─── Render compare table（集成模式）────────────────────
-function renderCompare(fc) {
-  const panel = $('comparePanel');
-  if (!fc?.forecast || currentEngine !== 'ensemble' || !fc.forecast[0]?.timesfm) {
-    panel.classList.remove('show'); return;
-  }
-  panel.classList.add('show');
-
-  const checkpoints = [0, 29, 59, 89, 119, 179].filter(i => i < fc.forecast.length);
-  const rows = checkpoints.map(i => {
-    const f = fc.forecast[i];
-    const sep = i === 0 ? '' : '';
-    return `<tr class="${sep}">
-      <td>${f.date}</td>
-      <td class="tag-ens"><b>¥${f.price}</b></td>
-      <td class="tag-tfm">¥${f.timesfm}</td>
-      <td class="tag-cls">¥${f.classic}</td>
-      <td style="color:var(--text-dim)">¥${f.lower} ~ ¥${f.upper}</td>
-    </tr>`;
-  }).join('');
-  $('compareBody').innerHTML = rows;
 }
 
 init();
