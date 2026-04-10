@@ -357,7 +357,7 @@
   </div>
 </div>
 
-<a href="/tcm" class="nav-link">中医方剂分析 →</a>
+<a href="./tcm" class="nav-link">中医方剂分析 →</a>
 
 <script>
 const searchInput = document.getElementById('searchInput');
@@ -378,7 +378,7 @@ let forecastData = null;
 let showForecast = false;
 
 async function init() {
-  const resp = await fetch('/api/varieties');
+  const resp = await fetch('./api/varieties');
   varieties = await resp.json();
   const today = new Date();
   endDate.value = fmt(today);
@@ -472,7 +472,7 @@ forecastBtn.addEventListener('click', async () => {
     forecastBtn.textContent = '计算中…';
     setLoading(true, '正在运行预测模型，请稍候…');
     try {
-      const resp = await fetch(`/api/forecast?name=${encodeURIComponent(selectedName)}`);
+      const resp = await fetch(`./api/forecast?name=${encodeURIComponent(selectedName)}`);
       if (!resp.ok) throw new Error('预测请求失败');
       forecastData = await resp.json();
     } catch (e) {
@@ -506,8 +506,8 @@ async function loadChart() {
   if (endDate.value) params.set('end', endDate.value);
 
   const [priceResp, kResp] = await Promise.all([
-    fetch(`/api/prices?${params}`),
-    fetch(`/api/k_value?name=${encodeURIComponent(selectedName)}`),
+    fetch(`./api/prices?${params}`),
+    fetch(`./api/k_value?name=${encodeURIComponent(selectedName)}`),
   ]);
   const priceData = await priceResp.json();
   const kData = await kResp.json();

@@ -169,7 +169,7 @@
   <header>
     <h1>🏥 中医病症<span>治疗成本</span>分析</h1>
     <p>基于古籍处方 × 实时药材价格，估算各病症的中药治疗费用</p>
-    <div class="nav"><a href="/">← 药材价格趋势</a></div>
+    <div class="nav"><a href="./">← 药材价格趋势</a></div>
   </header>
 
   <!-- Overview Stats -->
@@ -228,7 +228,7 @@ let costChart = null;
 // ── Load Overview ──
 async function loadOverview() {
   try {
-    const res = await fetch('/api/tcm/overview');
+    const res = await fetch('./api/tcm/overview');
     const d = await res.json();
     $('#sFormulaCount').textContent = d.formulaCount.toLocaleString();
     $('#sHerbCount').textContent = d.herbCount;
@@ -241,7 +241,7 @@ async function loadOverview() {
 // ── Load Symptom List ──
 async function loadSymptoms() {
   try {
-    const res = await fetch('/api/tcm/symptoms');
+    const res = await fetch('./api/tcm/symptoms');
     allSymptoms = await res.json();
     renderSymptoms(allSymptoms);
   } catch(e) {
@@ -285,7 +285,7 @@ async function selectSymptom(symptom, el) {
   $('#formulaList').innerHTML = '<div class="loading">正在计算成本</div>';
 
   try {
-    const res = await fetch(`/api/tcm/symptom_cost?symptom=${encodeURIComponent(symptom)}&page=1&page_size=20&detail=1`);
+    const res = await fetch(`./api/tcm/symptom_cost?symptom=${encodeURIComponent(symptom)}&page=1&page_size=20&detail=1`);
     const d = await res.json();
     totalPages = d.totalPages || 1;
     renderDetail(d, false);
@@ -303,7 +303,7 @@ async function loadMoreFormulas() {
   if (btn) btn.textContent = '加载中…';
 
   try {
-    const res = await fetch(`/api/tcm/symptom_cost?symptom=${encodeURIComponent(currentSymptom)}&page=${currentPage}&page_size=20&detail=1`);
+    const res = await fetch(`./api/tcm/symptom_cost?symptom=${encodeURIComponent(currentSymptom)}&page=${currentPage}&page_size=20&detail=1`);
     const d = await res.json();
     renderDetail(d, true);
   } catch(e) {
