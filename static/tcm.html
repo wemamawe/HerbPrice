@@ -266,9 +266,18 @@ $('#searchInput').addEventListener('input', e => {
 });
 
 // ── Select Symptom ──
+let currentSymptom = '';
+let currentPage = 1;
+let totalPages = 1;
+let isLoadingMore = false;
+
 async function selectSymptom(symptom, el) {
   document.querySelectorAll('.symptom-item').forEach(e => e.classList.remove('active'));
   if (el) el.classList.add('active');
+
+  currentSymptom = symptom;
+  currentPage = 1;
+  totalPages = 1;
 
   $('#emptyState').style.display = 'none';
   $('#detailContent').style.display = 'block';
@@ -276,49 +285,87 @@ async function selectSymptom(symptom, el) {
   $('#formulaList').innerHTML = '<div class="loading">正在计算成本</div>';
 
   try {
-    const res = await fetch(`/api/tcm/symptom_cost?symptom=${encodeURIComponent(symptom)}`);
+    const res = await fetch(`/api/tcm/symptom_cost?symptom=${encodeURIComponent(symptom)}&page=1&page_size=20&detail=1`);
     const d = await res.json();
-    renderDetail(d);
+    totalPages = d.totalPages || 1;
+    renderDetail(d, false);
   } catch(e) {
     $('#formulaList').innerHTML = '<p style="color:var(--red)">加载失败</p>';
   }
 }
 
+async function loadMoreFormulas() {
+  if (isLoadingMore || currentPage >= totalPages) return;
+  isLoadingMore = true;
+  currentPage++;
+
+  const btn = $('#loadMoreBtn');
+  if (btn) btn.textContent = '加载中…';
+
+  try {
+    const res = await fetch(`/api/tcm/symptom_cost?symptom=${encodeURIComponent(currentSymptom)}&page=${currentPage}&page_size=20&detail=1`);
+    const d = await res.json();
+    renderDetail(d, true);
+  } catch(e) {
+    currentPage--;
+  }
+  isLoadingMore = false;
+}
+
 // ── Render Detail ──
-function renderDetail(data) {
+function renderDetail(data, append) {
   if (!data.formulas || data.formulas.length === 0) {
-    $('#formulaList').innerHTML = '<p style="color:var(--text-dim);padding:20px">暂无可计算成本的处方</p>';
+    if (!append) {
+      $('#formulaList').innerHTML = '<p style="color:var(--text-dim);padding:20px">暂无可计算成本的处方</p>';
+    }
     return;
   }
 
-  const s = data.stats;
-  $('#cMedian').textContent = `¥${s.median_single.toFixed(2)}`;
-  $('#cAvg').textContent = `¥${s.avg_single.toFixed(2)}`;
-  $('#cCourse').textContent = `¥${s.median_course.toFixed(2)}`;
-  $('#cRange').textContent = `¥${s.min_single.toFixed(0)}–${s.max_single.toFixed(0)}`;
-  $('#formulaTotal').textContent = data.formulaCount;
+  if (!append) {
+    const s = data.stats;
+    $('#cMedian').textContent = `¥${s.median_single.toFixed(2)}`;
+    $('#cAvg').textContent = `¥${s.avg_single.toFixed(2)}`;
+    $('#cCourse').textContent = `¥${s.median_course.toFixed(2)}`;
+    $('#cRange').textContent = `¥${s.min_single.toFixed(0)}–${s.max_single.toFixed(0)}`;
+    $('#formulaTotal').textContent = data.formulaCount;
 
-  // Chart: formula cost distribution
-  renderCostChart(data.formulas);
+    // 优先用后端全量分布数据
+    if (data.costDistribution) {
+      renderCostChartFromDistribution(data.costDistribution);
+    } else {
+      renderCostChart(data.formulas);
+    }
+  }
 
-  // Formula cards
-  const html = data.formulas.map((f, i) => {
-    const maxCost = Math.max(...f.herbs.filter(h => h.hasPrice).map(h => h.cost), 0.01);
-    const herbRows = f.herbs.map(h => {
-      if (!h.hasPrice) return `<tr><td>${h.name}</td><td>${h.dosageG.toFixed(1)}g</td><td class="no-price">无报价</td><td>-</td></tr>`;
-      const barW = Math.max(4, (h.cost / maxCost) * 100);
-      return `<tr>
-        <td>${h.name}</td>
-        <td>${h.dosageG.toFixed(1)}g</td>
-        <td>¥${h.pricePerKg.toFixed(0)}/kg</td>
-        <td>¥${h.cost.toFixed(2)}<div class="herb-bar" style="width:${barW}%"></div></td>
-      </tr>`;
-    }).join('');
+  const cards = data.formulas.map((f, i) => {
+    const hasHerbs = f.herbs && f.herbs.length > 0;
+    let herbSection = '';
 
-    const symptoms = f.symptoms.map(s => `<span>${s}</span>`).join('');
+    if (hasHerbs) {
+      const maxCost = Math.max(...f.herbs.filter(h => h.hasPrice).map(h => h.cost), 0.01);
+      const herbRows = f.herbs.map(h => {
+        if (!h.hasPrice) return `<tr><td>${h.name}</td><td>${h.dosageG.toFixed(1)}g</td><td class="no-price">无报价</td><td>-</td></tr>`;
+        const barW = Math.max(4, (h.cost / maxCost) * 100);
+        return `<tr>
+          <td>${h.name}</td>
+          <td>${h.dosageG.toFixed(1)}g</td>
+          <td>¥${h.pricePerKg.toFixed(0)}/kg</td>
+          <td>¥${h.cost.toFixed(2)}<div class="herb-bar" style="width:${barW}%"></div></td>
+        </tr>`;
+      }).join('');
+
+      herbSection = `<div class="formula-herbs" ${!append && i === 0 ? 'class="formula-herbs show"' : ''}>
+        <table class="herb-table">
+          <tr><th>药材</th><th>用量</th><th>单价</th><th>费用</th></tr>
+          ${herbRows}
+        </table>
+      </div>`;
+    }
+
+    const symptoms = (f.symptoms || []).map(s => `<span>${s}</span>`).join('');
 
     return `<div class="formula-card">
-      <div class="formula-header" onclick="this.nextElementSibling.nextElementSibling.classList.toggle('show')">
+      <div class="formula-header" onclick="this.parentElement.querySelector('.formula-herbs')?.classList.toggle('show')">
         <div>
           <span class="fname">${f.name}</span>
           <span class="fsource">${f.source} · ${f.herbCount}味 · 匹配${f.matchRate}%</span>
@@ -326,22 +373,86 @@ function renderDetail(data) {
         <span class="fprice">¥${f.costSingle.toFixed(2)}/剂</span>
       </div>
       <div class="formula-tags">${symptoms}</div>
-      <div class="formula-herbs" ${i === 0 ? 'class="formula-herbs show"' : ''}>
-        <table class="herb-table">
-          <tr><th>药材</th><th>用量</th><th>单价</th><th>费用</th></tr>
-          ${herbRows}
-        </table>
-      </div>
+      ${herbSection}
     </div>`;
   }).join('');
 
-  $('#formulaList').innerHTML = html;
-  // Ensure first card herbs are visible
-  const firstHerbs = document.querySelector('.formula-herbs');
-  if (firstHerbs) firstHerbs.classList.add('show');
+  if (append) {
+    // 移除旧的"加载更多"按钮，追加新卡片
+    const oldBtn = $('#loadMoreBtn');
+    if (oldBtn) oldBtn.remove();
+    $('#formulaList').insertAdjacentHTML('beforeend', cards);
+  } else {
+    $('#formulaList').innerHTML = cards;
+    // 展开第一个处方的药材详情
+    const firstHerbs = document.querySelector('.formula-herbs');
+    if (firstHerbs) firstHerbs.classList.add('show');
+  }
+
+  // 如果还有更多页，添加"加载更多"按钮
+  if (currentPage < totalPages) {
+    $('#formulaList').insertAdjacentHTML('beforeend',
+      `<div id="loadMoreBtn" onclick="loadMoreFormulas()" style="
+        text-align:center; padding:14px; cursor:pointer; color:var(--accent);
+        font-size:14px; font-weight:500; border:1px dashed var(--border);
+        border-radius:8px; margin-top:8px; transition:all 0.2s;
+      " onmouseover="this.style.borderColor='var(--accent)'"
+        onmouseout="this.style.borderColor='var(--border)'">
+        加载更多（第 ${currentPage + 1}/${totalPages} 页）
+      </div>`
+    );
+  }
 }
 
-// ── Cost Distribution Chart ──
+// ── Cost Distribution Chart (from backend full data) ──
+function renderCostChartFromDistribution(distribution) {
+  if (!costChart) {
+    costChart = echarts.init($('#costChart'));
+    window.addEventListener('resize', () => costChart.resize());
+  }
+  costChart.setOption({
+    backgroundColor: 'transparent',
+    title: {
+      text: '处方费用分布（单剂）',
+      textStyle: { color: '#94a3b8', fontSize: 13, fontWeight: 500 },
+      left: 0, top: 0,
+    },
+    tooltip: {
+      trigger: 'axis',
+      formatter: p => `${p[0].name}<br/>处方数: <b>${p[0].value}</b>`,
+    },
+    grid: { left: 50, right: 20, top: 40, bottom: 30 },
+    xAxis: {
+      type: 'category',
+      data: distribution.map(b => b.label),
+      axisLabel: { color: '#94a3b8', fontSize: 11 },
+      axisLine: { lineStyle: { color: '#334155' } },
+    },
+    yAxis: {
+      type: 'value',
+      axisLabel: { color: '#94a3b8' },
+      splitLine: { lineStyle: { color: '#1e293b' } },
+    },
+    series: [{
+      type: 'bar',
+      data: distribution.map(b => b.count),
+      itemStyle: {
+        borderRadius: [4, 4, 0, 0],
+        color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [
+          { offset: 0, color: '#3b82f6' },
+          { offset: 1, color: '#1e40af' },
+        ]),
+      },
+      label: {
+        show: true, position: 'top',
+        color: '#94a3b8', fontSize: 11,
+        formatter: p => p.value > 0 ? p.value : '',
+      },
+    }],
+  });
+}
+
+// ── Cost Distribution Chart (from page formulas, fallback) ──
 function renderCostChart(formulas) {
   if (!costChart) {
     costChart = echarts.init($('#costChart'));

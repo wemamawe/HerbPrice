@@ -752,16 +752,25 @@ def save_formulas(formulas: list[dict]):
 
 
 def calculate_formula_cost(formula_id: int = None,
-                           formula_name: str = None) -> dict | None:
+                           formula_name: str = None,
+                           conn: sqlite3.Connection = None,
+                           prices: dict = None) -> dict | None:
     """计算单个处方的成本
 
-    返回：{
-        name, herbs: [{name, dosage_g, price_per_kg, cost}],
-        total_cost, total_cost_course (疗程费用，按7天计)
-    }
+    Args:
+        formula_id: 处方 ID
+        formula_name: 处方名称
+        conn: 可选，外部传入的数据库连接（批量计算时复用）
+        prices: 可选，外部传入的价格字典（批量计算时复用）
+
+    Returns:
+        {name, herbs, total_cost_single, total_cost_course, ...}
     """
-    conn = get_connection()
-    prices = get_latest_prices()
+    should_close = conn is None
+    if conn is None:
+        conn = get_connection()
+    if prices is None:
+        prices = get_latest_prices()
 
     if formula_name:
         row = conn.execute(
@@ -774,11 +783,13 @@ def calculate_formula_cost(formula_id: int = None,
             (formula_id,)
         ).fetchone()
     else:
-        conn.close()
+        if should_close:
+            conn.close()
         return None
 
     if not row:
-        conn.close()
+        if should_close:
+            conn.close()
         return None
 
     herbs = conn.execute(
@@ -791,7 +802,8 @@ def calculate_formula_cost(formula_id: int = None,
         (row["id"],)
     ).fetchall()
 
-    conn.close()
+    if should_close:
+        conn.close()
 
     herb_costs = []
     total_cost = 0.0

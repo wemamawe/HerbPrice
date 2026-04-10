@@ -158,10 +158,21 @@ def api_tcm_symptoms():
 
 @app.route("/api/tcm/symptom_cost")
 def api_tcm_symptom_cost():
-    """计算指定病症的治疗成本"""
+    """计算指定病症的治疗成本
+
+    Query params:
+        symptom: 病症名称（必填）
+        page: 页码，从 1 开始（默认 1）
+        page_size: 每页处方数（默认 20，最大 100）
+        detail: 是否返回药材明细（默认 0，设为 1 返回完整 herbs）
+    """
     symptom = request.args.get("symptom", "")
     if not symptom:
         return jsonify({"error": "缺少 symptom 参数"}), 400
+
+    page = max(1, int(request.args.get("page", 1)))
+    page_size = min(100, max(1, int(request.args.get("page_size", 20))))
+    show_detail = request.args.get("detail", "0") == "1"
 
     from tcm_analyzer import calculate_formula_cost, get_latest_prices
 
@@ -177,15 +188,16 @@ def api_tcm_symptom_cost():
         ORDER BY f.source, f.name
     """, (symptom,)).fetchall()
 
-    conn.close()
-
+    # 批量计算所有处方成本（复用 conn 和 prices）
     formulas = []
     costs = []
     for fr in formula_rows:
-        cost = calculate_formula_cost(formula_id=fr["id"])
+        cost = calculate_formula_cost(formula_id=fr["id"], conn=conn, prices=prices)
         if cost and cost["total_cost_single"] > 0:
             formulas.append(cost)
             costs.append(cost["total_cost_single"])
+
+    conn.close()
 
     if not costs:
         return jsonify({
@@ -194,29 +206,46 @@ def api_tcm_symptom_cost():
             "formulas": [],
         })
 
-    # 用中位数代替均值（减少极端值影响）
+    # 按单剂成本排序
+    formulas.sort(key=lambda x: x["total_cost_single"])
+
+    # 统计
     costs_sorted = sorted(costs)
     n = len(costs_sorted)
     median = costs_sorted[n // 2] if n % 2 == 1 else (
         costs_sorted[n // 2 - 1] + costs_sorted[n // 2]) / 2
-
-    # 排除极端值后计算均值（去掉最高和最低 10%）
     trim = max(1, n // 10)
     trimmed = costs_sorted[trim:-trim] if n > 5 else costs_sorted
     trimmed_avg = sum(trimmed) / len(trimmed) if trimmed else median
 
-    return jsonify({
-        "symptom": symptom,
-        "formulaCount": len(formulas),
-        "stats": {
-            "median_single": round(median, 2),
-            "avg_single": round(trimmed_avg, 2),
-            "min_single": round(min(costs), 2),
-            "max_single": round(max(costs), 2),
-            "median_course": round(median * 7, 2),
-            "avg_course": round(trimmed_avg * 7, 2),
-        },
-        "formulas": [{
+    # 全量费用分布（用于柱状图，仅首页返回）
+    cost_distribution = None
+    if page == 1:
+        buckets = [
+            {"label": "0-5元", "min": 0, "max": 5},
+            {"label": "5-10元", "min": 5, "max": 10},
+            {"label": "10-20元", "min": 10, "max": 20},
+            {"label": "20-50元", "min": 20, "max": 50},
+            {"label": "50-100元", "min": 50, "max": 100},
+            {"label": "100-200元", "min": 100, "max": 200},
+            {"label": "200-500元", "min": 200, "max": 500},
+            {"label": "500+元", "min": 500, "max": float("inf")},
+        ]
+        for b in buckets:
+            b["count"] = sum(1 for c in costs if b["min"] <= c < b["max"])
+        cost_distribution = [{"label": b["label"], "count": b["count"]} for b in buckets]
+
+    # 分页
+    total = len(formulas)
+    total_pages = (total + page_size - 1) // page_size
+    start = (page - 1) * page_size
+    end = start + page_size
+    page_formulas = formulas[start:end]
+
+    # 构建处方列表（根据 detail 参数决定是否包含药材明细）
+    formula_list = []
+    for f in page_formulas:
+        item = {
             "name": f["name"],
             "source": f["source"],
             "category": f.get("category", ""),
@@ -225,15 +254,36 @@ def api_tcm_symptom_cost():
             "herbCount": f["herb_count"],
             "matchRate": f["match_rate"],
             "symptoms": f["symptoms"],
-            "herbs": [{
+        }
+        if show_detail:
+            item["herbs"] = [{
                 "name": h["name"],
                 "dosageG": h["dosage_g"],
                 "pricePerKg": h["price_per_kg"],
                 "cost": h["cost"],
                 "hasPrice": h["has_price"],
-            } for h in f["herbs"]],
-        } for f in sorted(formulas, key=lambda x: x["total_cost_single"])],
-    })
+            } for h in f["herbs"]]
+        formula_list.append(item)
+
+    result = {
+        "symptom": symptom,
+        "formulaCount": total,
+        "page": page,
+        "pageSize": page_size,
+        "totalPages": total_pages,
+        "stats": {
+            "median_single": round(median, 2),
+            "avg_single": round(trimmed_avg, 2),
+            "min_single": round(min(costs), 2),
+            "max_single": round(max(costs), 2),
+            "median_course": round(median * 7, 2),
+            "avg_course": round(trimmed_avg * 7, 2),
+        },
+        "formulas": formula_list,
+    }
+    if cost_distribution is not None:
+        result["costDistribution"] = cost_distribution
+    return jsonify(result)
 
 
 @app.route("/api/tcm/overview")
