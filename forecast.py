@@ -194,13 +194,14 @@ def _calc_confidence_band(df: pd.DataFrame, ensemble: np.ndarray,
 
 
 def forecast_variety(name: str, periods: int = FORECAST_DAYS) -> dict:
-    """对指定品种进行自适应集成预测
+    """对指定品种进行自适应集成预测（含多因子调整）
 
     改进要点：
     - 短期EMA主导(85%→65%)，中长期Prophet逐步提升
     - 多周期EMA(7/30/90天)捕捉不同时间尺度的动量
     - 波动率自适应置信区间
     - 起点平滑从5天扩展到10天（更柔和过渡）
+    - 【新增】多因子调整：季节、供给周期、产区集中度
 
     Returns:
         {
@@ -209,6 +210,7 @@ def forecast_variety(name: str, periods: int = FORECAST_DAYS) -> dict:
             "lastPrice": float,
             "forecast": [...],
             "method": str,
+            "factors": dict,  # 多因子详情
         }
     """
     df = _load_price_series(name)
@@ -234,7 +236,25 @@ def forecast_variety(name: str, periods: int = FORECAST_DAYS) -> dict:
                 weights[:, 1] * ridge_pred +
                 weights[:, 2] * ema_pred)
 
-    # 5) 混合置信区间
+    # 5) 多因子调整
+    factors_info = None
+    try:
+        from forecast_factors import get_price_adjustment
+        factors = get_price_adjustment(name)
+        factor = factors["factor"]
+
+        if abs(factor - 1.0) > 0.005:
+            # 因子渐进应用：前30天线性过渡，之后完全生效
+            for i in range(periods):
+                blend = min(1.0, (i + 1) / 30)  # 30天内线性过渡
+                day_factor = 1.0 + (factor - 1.0) * blend
+                ensemble[i] *= day_factor
+
+        factors_info = factors
+    except Exception:
+        pass
+
+    # 6) 混合置信区间
     lower, upper = _calc_confidence_band(
         df, ensemble, p_lower, p_upper, periods
     )
@@ -256,8 +276,10 @@ def forecast_variety(name: str, periods: int = FORECAST_DAYS) -> dict:
     w_mid = weights[min(89, periods - 1)]
     method = (f"自适应集成: 短期 EMA({w0[2]:.0%})+Prophet({w0[0]:.0%})+Ridge({w0[1]:.0%})"
               f" → 长期 EMA({w_mid[2]:.0%})+Prophet({w_mid[0]:.0%})+Ridge({w_mid[1]:.0%})")
+    if factors_info and abs(factors_info["factor"] - 1.0) > 0.005:
+        method += f" | 多因子修正 {factors_info['factor']:.2%}"
 
-    return {
+    result = {
         "name": name,
         "lastDate": last_date.strftime("%Y-%m-%d"),
         "lastPrice": round(last_price, 2),
@@ -272,6 +294,10 @@ def forecast_variety(name: str, periods: int = FORECAST_DAYS) -> dict:
         ],
         "method": method,
     }
+    if factors_info:
+        result["factors"] = factors_info
+
+    return result
 
 
 if __name__ == "__main__":

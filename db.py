@@ -136,6 +136,47 @@ def init_db():
             UNIQUE(herb_name, origin)
         );
 
+        -- 产区历史气象月度数据表
+        CREATE TABLE IF NOT EXISTS weather_monthly (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            origin TEXT NOT NULL,
+            year INTEGER NOT NULL,
+            month INTEGER NOT NULL,
+            lat REAL NOT NULL,
+            lon REAL NOT NULL,
+            rain_total REAL,
+            temp_avg REAL,
+            temp_max REAL,
+            temp_min REAL,
+            rain_days INTEGER,
+            hot_days INTEGER,
+            frost_days INTEGER,
+            created_at TEXT NOT NULL DEFAULT (datetime('now')),
+            UNIQUE(origin, year, month)
+        );
+
+        -- 历史气象异常事件表
+        CREATE TABLE IF NOT EXISTS weather_events (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            origin TEXT NOT NULL,
+            province TEXT NOT NULL DEFAULT '',
+            event_type TEXT NOT NULL,
+            start_date TEXT NOT NULL,
+            end_date TEXT,
+            severity REAL NOT NULL DEFAULT 0.5,
+            detail TEXT NOT NULL DEFAULT '',
+            affected_herbs TEXT NOT NULL DEFAULT '',
+            price_impact_pct REAL,
+            created_at TEXT NOT NULL DEFAULT (datetime('now'))
+        );
+
+        CREATE INDEX IF NOT EXISTS idx_weather_monthly_origin
+            ON weather_monthly(origin, year, month);
+        CREATE INDEX IF NOT EXISTS idx_weather_events_origin
+            ON weather_events(origin, start_date);
+        CREATE INDEX IF NOT EXISTS idx_weather_events_type
+            ON weather_events(event_type, start_date);
+
         CREATE INDEX IF NOT EXISTS idx_daily_prices_variety_date
             ON daily_prices(variety_id, date);
         CREATE INDEX IF NOT EXISTS idx_price_compare_variety_date
