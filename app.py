@@ -20,6 +20,11 @@ def tcm_page():
     return send_from_directory("static", "tcm.html")
 
 
+@app.route("/<path:filename>")
+def static_files(filename):
+    return send_from_directory("static", filename)
+
+
 @app.route("/api/varieties")
 def api_varieties():
     """获取所有有估算价格数据的品种列表"""
