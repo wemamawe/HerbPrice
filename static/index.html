@@ -603,18 +603,19 @@ function renderChart(priceData, kData, fc) {
       extraCssText: 'border-radius: 10px; box-shadow: 0 8px 32px rgba(0,0,0,0.5); backdrop-filter: blur(8px);',
       formatter: (params) => {
         let html = `<div style="font-weight:600;margin-bottom:6px">${params[0]?.axisValue || ''}</div>`;
+        let lowerVal = null, bandVal = null;
         params.forEach(p => {
           if (p.value == null) return;
-          if (p.seriesName === '置信上界' || p.seriesName === '置信下界') return;
+          if (p.seriesName === '置信下界') { lowerVal = p.value; return; }
+          if (p.seriesName === '置信上界') { bandVal = p.value; return; }
           html += `<div style="display:flex;align-items:center;gap:6px;margin:3px 0">`;
           html += `<span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:${p.color}"></span>`;
           html += `<span style="color:var(--text-dim)">${p.seriesName}</span>`;
           html += `<span style="font-weight:600;margin-left:auto">¥${p.value}</span></div>`;
         });
-        const lowerP = params.find(p => p.seriesName === '置信下界');
-        const upperP = params.find(p => p.seriesName === '置信上界');
-        if (lowerP?.value != null && upperP?.value != null) {
-          html += `<div style="color:#7b8ba5;font-size:12px;margin-top:4px">80% 置信区间：¥${lowerP.value} ~ ¥${upperP.value}</div>`;
+        if (lowerVal != null && bandVal != null) {
+          const upperVal = lowerVal + bandVal;
+          html += `<div style="color:#a78bfa;font-size:12px;margin-top:4px">80% 置信区间：¥${lowerVal.toFixed(1)} ~ ¥${upperVal.toFixed(1)}</div>`;
         }
         return html;
       }
@@ -696,6 +697,39 @@ function renderChart(priceData, kData, fc) {
     const bridgeLower = [data[data.length - 1].price, ...fcLower];
     const bridgeUpper = [data[data.length - 1].price, ...fcUpper];
 
+    const lowerData = allDates.map(d => { const i = bridgeDates.indexOf(d); return i >= 0 ? bridgeLower[i] : null; });
+    const upperData = allDates.map(d => { const i = bridgeDates.indexOf(d); return i >= 0 ? bridgeUpper[i] : null; });
+    // 差值数据：upper - lower（用于 stack 填充）
+    const bandData = allDates.map(d => {
+      const i = bridgeDates.indexOf(d);
+      return i >= 0 ? bridgeUpper[i] - bridgeLower[i] : null;
+    });
+
+    // Lower 线（stack 基线，透明填充，不显示线）
+    option.series.push({
+      name: '置信下界', type: 'line',
+      data: lowerData,
+      symbol: 'none',
+      lineStyle: { width: 0 },
+      areaStyle: { color: 'transparent' },
+      stack: 'ci',
+      connectNulls: false,
+      z: 1,
+    });
+
+    // Band（stack 在 lower 之上，高度 = upper - lower，半透明填充）
+    option.series.push({
+      name: '置信上界', type: 'line',
+      data: bandData,
+      symbol: 'none',
+      lineStyle: { width: 0 },
+      areaStyle: { color: 'rgba(167,139,250,0.28)' },
+      stack: 'ci',
+      connectNulls: false,
+      z: 1,
+    });
+
+    // 预测主线
     option.series.push({
       name: '预测价格', type: 'line',
       data: allDates.map(d => { const i = bridgeDates.indexOf(d); return i >= 0 ? bridgePrices[i] : null; }),
@@ -704,18 +738,6 @@ function renderChart(priceData, kData, fc) {
       connectNulls: false, z: 5,
     });
 
-    option.series.push({
-      name: '置信上界', type: 'line',
-      data: allDates.map(d => { const i = bridgeDates.indexOf(d); return i >= 0 ? bridgeUpper[i] : null; }),
-      symbol: 'none', lineStyle: { opacity: 0 }, connectNulls: false, stack: 'confidence', z: 2,
-    });
-    option.series.push({
-      name: '置信下界', type: 'line',
-      data: allDates.map(d => { const i = bridgeDates.indexOf(d); return i >= 0 ? bridgeLower[i] : null; }),
-      symbol: 'none', lineStyle: { opacity: 0 },
-      areaStyle: { color: 'rgba(167,139,250,0.1)' },
-      connectNulls: false, z: 2,
-    });
     option.legend.data = legendData;
     option.legend.selected = { '置信上界': true, '置信下界': true };
 
