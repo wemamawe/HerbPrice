@@ -355,6 +355,18 @@
       <div class="sub" id="sForecastRange">-</div>
     </div>
   </div>
+
+  <!-- 产地分布地图 -->
+  <div class="chart-card" id="originMapCard" style="display:none; margin-top: 20px;">
+    <div class="chart-header">
+      <div class="chart-title">
+        <h2 id="mapTitle">产地分布</h2>
+        <span class="badge" id="mapBadge">-</span>
+      </div>
+      <div class="chart-meta" id="mapMeta">数据来源：中药材天地网资源地图 + 海关统计</div>
+    </div>
+    <div id="originMap" style="width:100%; height:560px;"></div>
+  </div>
 </div>
 
 <a href="./tcm" class="nav-link">中医方剂分析 →</a>
@@ -444,6 +456,7 @@ function selectVariety(name) {
   showForecast = false;
   forecastBtn.classList.remove('active');
   loadChart();
+  loadOriginMap(name);
 }
 
 document.querySelectorAll('.preset-btn').forEach(btn => {
@@ -777,6 +790,434 @@ function renderStats(priceData, kData, fc) {
   } else {
     fcCard.style.display = 'none';
   }
+}
+
+// ═══════════════════════════════════════════════════════════════
+// 产地分布地图
+// ═══════════════════════════════════════════════════════════════
+
+// 城市 -> 经纬度（主要中药材产区）
+const CITY_COORDS = {
+  // 甘肃
+  "岷县":[104.04,34.43],"陇西":[104.63,35.00],"渭源":[104.21,35.13],"宕昌":[104.39,33.94],
+  "礼县":[105.18,34.19],"文县":[104.68,32.94],"西和":[105.30,34.01],"玉门":[97.04,40.29],
+  "兰州":[103.83,36.06],"平凉":[106.67,35.54],"民勤":[103.09,38.62],"民乐":[100.82,38.43],
+  "临潭":[103.35,34.69],
+  // 四川
+  "都江堰":[103.62,30.99],"彭州":[103.96,30.99],"彭山":[103.87,30.19],"三台":[105.09,31.09],
+  "江油":[104.75,31.78],"阿坝":[101.71,32.90],"中江":[104.68,31.03],"青川":[105.24,32.58],
+  "旺苍":[106.29,32.23],"北川":[104.46,31.62],"夹江":[103.57,29.74],"犍为":[103.95,29.21],
+  "金口河":[103.08,29.24],"宝兴":[102.81,30.37],"石棉":[102.36,29.23],"宜宾":[104.64,28.75],
+  "安岳":[105.34,30.10],"金堂":[104.41,30.86],"通江":[107.24,31.91],"南江":[106.83,32.35],
+  "大邑":[103.52,30.57],"遂宁":[105.59,30.53],"万源":[108.04,32.08],"宣汉":[107.73,31.35],
+  "广汉":[104.28,30.98],"甘孜":[101.96,31.62],"马边":[103.55,28.84],"沐川":[103.90,28.96],
+  "凉山":[102.27,27.90],"古蔺":[105.81,28.04],"平武":[104.53,32.41],"盐边":[101.85,26.68],
+  // 云南
+  "文山":[104.24,23.37],"楚雄":[101.55,25.03],"大理":[100.23,25.59],"德钦":[98.91,28.49],
+  "香格里拉":[99.71,27.82],"宾川":[100.58,25.83],"洱源":[99.95,26.11],"永胜":[100.75,26.68],
+  "玉龙":[100.24,26.82],"罗平":[104.31,24.88],"陆良":[103.67,25.03],"景谷":[100.70,23.50],
+  "砚山":[104.33,23.61],"勐腊":[101.56,21.48],"双柏":[101.64,24.69],"永仁":[101.67,26.06],
+  "瑞丽":[97.85,24.01],"绿春":[102.39,22.99],"蒙自":[103.38,23.37],"华坪":[101.27,26.63],
+  "福贡":[98.87,26.90],"永平":[99.54,25.46],
+  // 安徽
+  "亳州":[115.78,33.84],"岳西":[116.36,30.85],"太和":[115.62,33.16],"宣城":[118.76,30.95],
+  "霍山":[116.33,31.39],"金寨":[115.93,31.73],"黄山":[118.34,29.71],
+  // 河南
+  "焦作":[113.24,35.22],"南阳":[112.53,33.00],"三门峡":[111.20,34.77],"封丘":[114.42,35.04],
+  "信阳":[114.09,32.15],"洛阳":[112.45,34.62],"禹州":[113.49,34.14],"确山":[114.03,32.80],
+  // 山东
+  "平邑":[117.64,35.51],"菏泽":[115.48,35.23],"汶上":[116.50,35.73],"冠县":[115.44,36.48],
+  "东阿":[116.25,36.33],"莒县":[118.84,35.58],"费县":[117.98,35.27],"平阴":[116.46,36.28],
+  "文登":[122.05,37.19],
+  // 河北
+  "安国":[115.33,38.42],"围场":[117.76,41.94],"巨鹿":[115.04,37.22],"行唐":[114.55,38.44],
+  "内丘":[114.51,37.29],"林州":[113.82,36.08],
+  // 山西
+  "闻喜":[111.22,35.36],"新绛":[111.22,35.61],"襄汾":[111.44,35.88],"绛县":[111.57,35.49],
+  "潞城":[113.23,36.33],
+  // 内蒙古
+  "赤峰":[118.89,42.26],"呼伦贝尔":[119.77,49.21],"通辽":[122.26,43.65],
+  "阿拉善":[105.73,38.85],"巴彦淖尔":[107.39,40.74],
+  // 浙江
+  "磐安":[120.45,29.05],"淳安":[119.04,29.61],"建德":[119.28,29.48],"乐清":[120.98,28.12],
+  // 湖北
+  "利川":[108.94,30.29],"恩施":[109.49,30.30],"罗田":[115.40,30.78],"英山":[115.68,30.73],
+  "随州":[113.38,31.69],"五峰":[110.67,30.20],"夷陵":[111.33,30.77],"蕲春":[115.44,30.23],
+  // 湖南
+  "邵东":[111.74,27.26],"靖州":[109.70,26.57],"隆回":[111.03,27.11],
+  "湘潭":[112.94,27.83],"龙山":[109.44,29.46],"沅江":[112.35,28.84],
+  // 广东
+  "高州":[110.85,21.92],"新会":[113.03,22.46],"德庆":[111.79,23.14],"高要":[112.46,23.03],
+  "英德":[113.40,24.18],"阳春":[111.79,22.17],"徐闻":[110.18,20.33],"化州":[110.64,21.66],
+  "信宜":[110.95,22.35],
+  // 广西
+  "玉林":[110.15,22.65],"贵港":[109.60,23.11],"全州":[111.07,25.93],"永福":[109.98,24.98],
+  "柳州":[109.42,24.33],"博白":[109.98,22.27],"防城港":[108.35,21.77],
+  // 江西
+  "宜春":[114.39,27.80],"泰和":[114.91,26.79],"抚州":[116.36,27.95],"石城":[116.35,26.31],
+  "信丰":[114.92,25.39],"樟树":[115.55,28.06],"上饶":[117.97,28.45],
+  // 辽宁
+  "新宾":[125.04,41.73],"西丰":[124.73,42.74],"桓仁":[125.36,41.27],
+  "清原":[124.93,42.10],"建昌":[119.84,40.82],
+  // 吉林
+  "靖宇":[126.81,42.39],"抚松":[127.45,42.34],"桦甸":[126.75,42.97],"通化":[125.94,41.73],
+  // 黑龙江
+  "大庆":[125.11,46.59],"黑河":[127.53,50.24],"尚志":[128.01,45.21],
+  "通河":[128.75,45.97],"铁力":[128.03,46.99],"牡丹江":[129.63,44.55],"伊春":[128.84,47.73],
+  // 贵州
+  "剑河":[108.44,26.73],"施秉":[108.12,27.03],"都匀":[107.52,26.26],"兴仁":[105.19,25.44],
+  // 重庆
+  "垫江":[107.35,30.33],"奉节":[109.47,31.02],"石柱":[108.11,30.00],"秀山":[109.01,28.45],
+  "酉阳":[108.77,28.84],
+  // 陕西
+  "城固":[107.33,33.16],"商州":[109.94,33.86],"佛坪":[107.99,33.52],"勉县":[106.67,33.15],
+  "丹凤":[110.33,33.70],"柞水":[109.11,33.69],"澄城":[109.93,35.19],
+  "大荔":[109.94,34.80],"旬阳":[109.37,32.83],"合阳":[110.15,35.24],
+  // 青海
+  "湟中":[101.57,36.50],"大通":[101.68,36.93],"海西":[97.37,37.37],"西宁":[101.78,36.62],
+  // 宁夏
+  "中卫":[105.20,37.50],
+  // 新疆
+  "精河":[82.89,44.60],"吉木萨尔":[89.18,44.00],"奇台":[89.59,44.02],
+  "巩留":[82.23,43.48],"霍城":[80.87,44.06],"库尔勒":[86.17,41.73],
+  // 西藏
+  "那曲":[92.05,31.48],"昌都":[97.17,31.14],
+  // 江苏
+  "南通":[120.86,32.01],"泗阳":[118.70,33.72],"射阳":[120.26,33.77],"邳州":[117.97,34.31],
+  // 福建
+  "古田":[118.75,26.58],"柘荣":[119.90,27.23],"莆田":[119.01,25.43],
+  // 海南
+  "琼山":[110.35,19.99],"文昌":[110.80,19.54],
+  // 省会/大城市补充
+  "宁安":[129.48,44.34],
+  // 省份名称 -> 省会坐标（用于 varieties 表中只有省级产地名的情况）
+  "安徽":[117.28,31.86],"四川":[104.07,30.67],"广西":[108.33,22.84],
+  "云南":[102.71,25.04],"湖北":[114.34,30.55],"河南":[113.65,34.76],
+  "河北":[114.50,38.04],"山东":[117.00,36.67],"甘肃":[103.83,36.06],
+  "湖南":[112.98,28.19],"浙江":[120.15,30.28],"江西":[115.89,28.68],
+  "内蒙古":[111.75,40.84],"陕西":[108.95,34.27],"广东":[113.26,23.13],
+  "江苏":[118.77,32.06],"贵州":[106.71,26.57],"山西":[112.55,37.87],
+  "新疆":[87.62,43.79],"吉林":[125.33,43.88],"福建":[119.30,26.08],
+  "辽宁":[123.43,41.80],"黑龙江":[126.64,45.75],"青海":[101.78,36.62],
+  "宁夏":[106.27,38.47],"重庆":[106.55,29.56],"西藏":[91.11,29.65],
+  "海南":[110.35,20.02],
+  // 其他缺失城市
+  "孟州":[112.79,34.91],"龙山":[109.44,29.46],"溆浦":[110.60,27.90],
+  "隆回":[111.03,27.11],"新昌":[120.90,29.50],"天台":[121.01,29.14],
+  "嵊州":[120.83,29.59],"东阳":[120.24,29.28],"咸丰":[109.14,29.68],
+  "来凤":[109.41,29.50],"秀山":[109.01,28.45],
+  "东北":[125.33,43.88],"华北":[116.40,39.90],
+};
+
+let originChart = null;
+let chinaMapLoaded = false;
+
+// 省份简称 -> GeoJSON 中的全称
+const PROVINCE_FULL_NAME = {
+  "河北": "河北省", "山西": "山西省", "内蒙古": "内蒙古自治区",
+  "辽宁": "辽宁省", "吉林": "吉林省", "黑龙江": "黑龙江省",
+  "江苏": "江苏省", "浙江": "浙江省", "安徽": "安徽省",
+  "福建": "福建省", "江西": "江西省", "山东": "山东省",
+  "河南": "河南省", "湖北": "湖北省", "湖南": "湖南省",
+  "广东": "广东省", "广西": "广西壮族自治区", "海南": "海南省",
+  "四川": "四川省", "贵州": "贵州省", "云南": "云南省",
+  "西藏": "西藏自治区", "陕西": "陕西省", "甘肃": "甘肃省",
+  "青海": "青海省", "宁夏": "宁夏回族自治区", "新疆": "新疆维吾尔自治区",
+  "重庆": "重庆市", "北京": "北京市", "天津": "天津市", "上海": "上海市",
+};
+
+async function ensureChinaMap() {
+  if (chinaMapLoaded) return true;
+  try {
+    const resp = await fetch('https://geo.datav.aliyun.com/areas_v3/bound/100000_full.json');
+    const geoJson = await resp.json();
+    echarts.registerMap('china', geoJson);
+    chinaMapLoaded = true;
+    return true;
+  } catch (e) {
+    console.error('加载中国地图失败:', e);
+    return false;
+  }
+}
+
+async function loadOriginMap(herbName) {
+  const mapCard = document.getElementById('originMapCard');
+  if (!herbName) { mapCard.style.display = 'none'; return; }
+
+  const mapReady = await ensureChinaMap();
+  if (!mapReady) { mapCard.style.display = 'none'; return; }
+
+  try {
+    const resp = await fetch(`./api/origins?name=${encodeURIComponent(herbName)}`);
+    const data = await resp.json();
+    if (!data.origins || !data.origins.length) {
+      mapCard.style.display = 'none';
+      return;
+    }
+
+    mapCard.style.display = '';
+    document.getElementById('mapTitle').textContent = `${herbName} · 产地分布`;
+
+    // 统计信息
+    const daodiCount = data.origins.filter(o => o.isDaodi).length;
+    const withOutput = data.origins.filter(o => o.annualOutputTons);
+    document.getElementById('mapBadge').textContent =
+      `${data.originCount} 个产区` + (daodiCount ? ` · ${daodiCount} 道地` : '');
+
+    // 分离国内产地和进口
+    const domestic = data.origins.filter(o => o.province !== '进口');
+    const imports = data.origins.filter(o => o.province === '进口');
+
+    // 地图散点数据
+    const scatterData = [];
+    const barData = [];
+
+    domestic.forEach(o => {
+      const coord = CITY_COORDS[o.origin];
+      if (!coord) return;
+      scatterData.push({
+        name: o.origin,
+        value: [...coord, o.annualOutputTons || 1],
+        isDaodi: o.isDaodi,
+        desc: o.description || '',
+        province: o.province,
+        tons: o.annualOutputTons,
+        percent: o.outputPercent,
+        area: o.plantingAreaMu,
+      });
+      if (o.annualOutputTons) {
+        barData.push({
+          name: o.origin,
+          value: [...coord, o.annualOutputTons],
+          tons: o.annualOutputTons,
+          percent: o.outputPercent,
+        });
+      }
+    });
+
+    renderOriginMap(herbName, scatterData, barData, imports);
+  } catch (e) {
+    console.error('加载产地数据失败:', e);
+    mapCard.style.display = 'none';
+  }
+}
+
+function renderOriginMap(herbName, scatterData, barData, imports) {
+  const el = document.getElementById('originMap');
+  if (originChart) { originChart.dispose(); }
+  originChart = echarts.init(el, 'dark');
+
+  // 最大产量用于归一化
+  const maxTons = Math.max(...barData.map(d => d.tons), 1);
+
+  // 构建省份高亮数据（用 map series）
+  const provinceSet = [...new Set(scatterData.map(d => d.province).filter(Boolean))];
+  const mapData = provinceSet.map(p => {
+    const fullName = PROVINCE_FULL_NAME[p] || p;
+    // 该省份下的产地数量
+    const count = scatterData.filter(d => d.province === p).length;
+    return { name: fullName, value: count };
+  });
+
+  const option = {
+    backgroundColor: 'transparent',
+    tooltip: {
+      trigger: 'item',
+      backgroundColor: 'rgba(21,29,46,0.96)',
+      borderColor: 'rgba(255,255,255,0.08)',
+      borderWidth: 1,
+      textStyle: { color: '#e8edf5', fontSize: 13 },
+      extraCssText: 'border-radius: 10px; box-shadow: 0 8px 32px rgba(0,0,0,0.5);',
+      formatter: (params) => {
+        const d = params.data;
+        if (!d) return '';
+        // map series tooltip（省份）
+        if (params.seriesType === 'map') {
+          if (!d.value) return '';
+          return `<div style="font-weight:600">${d.name}</div><div>产区数: ${d.value}</div>`;
+        }
+        // scatter tooltip（城市）
+        let html = `<div style="font-weight:600;margin-bottom:4px">${d.name}`;
+        if (d.province) html += ` <span style="color:#7b8ba5;font-size:12px">(${d.province})</span>`;
+        html += `</div>`;
+        if (d.isDaodi) html += `<div style="color:#ff8c42;font-size:12px">★ 道地产区</div>`;
+        if (d.tons) html += `<div style="margin-top:4px">年产量: <b>${formatTons(d.tons)}</b></div>`;
+        if (d.percent) html += `<div>占全国: <b>${d.percent}%</b></div>`;
+        if (d.area) html += `<div>种植面积: <b>${(d.area/10000).toFixed(1)}万亩</b></div>`;
+        if (d.desc) html += `<div style="color:#7b8ba5;font-size:12px;margin-top:4px;max-width:240px">${d.desc}</div>`;
+        return html;
+      }
+    },
+    visualMap: {
+      show: false,
+      min: 0,
+      max: Math.max(...mapData.map(d => d.value), 1),
+      inRange: {
+        color: ['rgba(79,143,255,0.15)', 'rgba(79,143,255,0.45)'],
+      },
+      seriesIndex: 0,
+    },
+    geo: {
+      map: 'china',
+      roam: true,
+      zoom: 1.2,
+      center: [104, 35],
+      itemStyle: {
+        areaColor: '#151d2e',
+        borderColor: '#1f2d44',
+        borderWidth: 0.8,
+      },
+      emphasis: {
+        disabled: true,
+      },
+      label: { show: false },
+      silent: true,
+    },
+    series: [
+      // 省份高亮层（map series 覆盖在 geo 上）
+      {
+        name: '产地省份',
+        type: 'map',
+        map: 'china',
+        geoIndex: 0,
+        data: mapData,
+        selectedMode: false,
+        itemStyle: {
+          areaColor: 'transparent',
+          borderWidth: 0,
+        },
+        emphasis: {
+          itemStyle: { areaColor: 'rgba(79,143,255,0.3)', borderColor: '#4f8fff', borderWidth: 1.5 },
+          label: { show: true, color: '#e8edf5', fontSize: 12 },
+        },
+        select: { disabled: true },
+      },
+      // 产地散点（无产量）
+      {
+        name: '产地',
+        type: 'scatter',
+        coordinateSystem: 'geo',
+        data: scatterData.filter(d => !d.tons),
+        symbolSize: 14,
+        symbol: 'circle',
+        itemStyle: {
+          color: (params) => params.data.isDaodi ? '#ff8c42' : '#4f8fff',
+          borderColor: '#fff',
+          borderWidth: 1.5,
+          shadowBlur: 10,
+          shadowColor: 'rgba(79,143,255,0.5)',
+        },
+        label: {
+          show: true,
+          position: 'right',
+          formatter: '{b}',
+          fontSize: 11,
+          color: '#b0bec5',
+          distance: 5,
+        },
+        zlevel: 2,
+      },
+      // 有产量数据的产地（散点大小编码产量 + 名称标签）
+      {
+        name: '产量产区',
+        type: 'scatter',
+        coordinateSystem: 'geo',
+        data: scatterData.filter(d => d.tons),
+        symbolSize: (val) => {
+          const tons = val[2];
+          return Math.max(18, Math.min(48, 18 + (tons / maxTons) * 30));
+        },
+        symbol: 'circle',
+        itemStyle: {
+          color: (params) => {
+            const p = params.data;
+            return p.isDaodi ? 'rgba(255,140,66,0.85)' : 'rgba(52,211,153,0.85)';
+          },
+          borderColor: '#fff',
+          borderWidth: 2,
+          shadowBlur: 14,
+          shadowColor: 'rgba(52,211,153,0.6)',
+        },
+        label: {
+          show: true,
+          position: 'right',
+          formatter: (p) => `${p.data.name} ${formatTons(p.data.tons)}`,
+          fontSize: 11,
+          color: '#e8edf5',
+          fontWeight: 500,
+          distance: 5,
+        },
+        zlevel: 3,
+      },
+      // 产量涟漪效果
+      {
+        name: '产量脉冲',
+        type: 'effectScatter',
+        coordinateSystem: 'geo',
+        data: barData.map(d => ({
+          ...d,
+          value: [d.value[0], d.value[1], d.value[2]],
+        })),
+        symbolSize: (val) => {
+          const tons = val[2];
+          return Math.max(20, Math.min(55, 20 + (tons / maxTons) * 35));
+        },
+        showEffectOn: 'render',
+        rippleEffect: { brushType: 'stroke', scale: 3, period: 5 },
+        itemStyle: {
+          color: 'rgba(52,211,153,0.6)',
+          shadowBlur: 20,
+          shadowColor: 'rgba(52,211,153,0.4)',
+        },
+        label: { show: false },
+        zlevel: 1,
+      },
+    ],
+  };
+
+  // 进口数据展示
+  if (imports.length) {
+    option.graphic = [{
+      type: 'group',
+      left: 20,
+      bottom: 20,
+      children: [
+        {
+          type: 'rect',
+          shape: { width: 220, height: 30 + imports.length * 24, r: 8 },
+          style: { fill: 'rgba(21,29,46,0.92)', stroke: '#1f2d44', lineWidth: 1 },
+        },
+        {
+          type: 'text',
+          style: {
+            text: '🌍 进口来源',
+            x: 12, y: 16, fill: '#7b8ba5', fontSize: 12, fontWeight: 600,
+          },
+        },
+        ...imports.map((imp, i) => ({
+          type: 'text',
+          style: {
+            text: `${imp.origin}${imp.annualOutputTons ? '  ' + formatTons(imp.annualOutputTons) : ''}`,
+            x: 12, y: 38 + i * 24, fill: '#e8edf5', fontSize: 13,
+          },
+        })),
+      ],
+    }];
+  }
+
+  originChart.setOption(option);
+  window.addEventListener('resize', () => originChart?.resize());
+}
+
+function getHighlightRegions(scatterData) {
+  // 不再使用（保留兼容）
+  return [];
+}
+
+function formatTons(tons) {
+  if (tons >= 10000) return (tons / 10000).toFixed(1) + '万吨';
+  if (tons >= 1000) return (tons / 1000).toFixed(1) + '千吨';
+  return tons.toFixed(0) + '吨';
 }
 
 init();

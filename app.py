@@ -339,5 +339,185 @@ def api_tcm_overview():
     })
 
 
+# ── 产地信息 API ─────────────────────────────────────────
+
+@app.route("/api/origins")
+def api_origins():
+    """获取指定药材的产地信息（含产量）
+
+    Query params:
+        name: 药材名称（必填）
+    """
+    name = request.args.get("name", "")
+    if not name:
+        return jsonify({"error": "缺少 name 参数"}), 400
+
+    conn = get_connection()
+    rows = conn.execute("""
+        SELECT herb_name, origin, is_daodi, province, description, source,
+               annual_output_tons, planting_area_mu, output_percent, data_year
+        FROM herb_origins
+        WHERE herb_name = ?
+        ORDER BY annual_output_tons DESC NULLS LAST, is_daodi DESC, province, origin
+    """, (name,)).fetchall()
+    conn.close()
+
+    if not rows:
+        return jsonify({"name": name, "origins": []})
+
+    origins = []
+    for r in rows:
+        item = {
+            "origin": r["origin"],
+            "isDaodi": bool(r["is_daodi"]),
+            "province": r["province"],
+            "description": r["description"],
+            "source": r["source"],
+        }
+        if r["annual_output_tons"] is not None:
+            item["annualOutputTons"] = r["annual_output_tons"]
+        if r["planting_area_mu"] is not None:
+            item["plantingAreaMu"] = r["planting_area_mu"]
+        if r["output_percent"] is not None:
+            item["outputPercent"] = r["output_percent"]
+        if r["data_year"] is not None:
+            item["dataYear"] = r["data_year"]
+        origins.append(item)
+
+    return jsonify({
+        "name": name,
+        "originCount": len(origins),
+        "origins": origins,
+    })
+
+
+@app.route("/api/origins/province")
+def api_origins_by_province():
+    """按省份统计产地药材分布
+
+    Query params:
+        province: 省份名（可选，不传则返回所有省份统计）
+    """
+    conn = get_connection()
+    province = request.args.get("province", "")
+
+    if province:
+        rows = conn.execute("""
+            SELECT herb_name, origin, is_daodi, description,
+                   annual_output_tons, planting_area_mu, output_percent, data_year
+            FROM herb_origins
+            WHERE province = ?
+            ORDER BY annual_output_tons DESC NULLS LAST, is_daodi DESC, herb_name
+        """, (province,)).fetchall()
+        conn.close()
+
+        items = []
+        for r in rows:
+            item = {
+                "herbName": r["herb_name"],
+                "origin": r["origin"],
+                "isDaodi": bool(r["is_daodi"]),
+                "description": r["description"],
+            }
+            if r["annual_output_tons"] is not None:
+                item["annualOutputTons"] = r["annual_output_tons"]
+            if r["planting_area_mu"] is not None:
+                item["plantingAreaMu"] = r["planting_area_mu"]
+            if r["output_percent"] is not None:
+                item["outputPercent"] = r["output_percent"]
+            if r["data_year"] is not None:
+                item["dataYear"] = r["data_year"]
+            items.append(item)
+
+        return jsonify({
+            "province": province,
+            "herbCount": len(set(r["herb_name"] for r in rows)),
+            "origins": items,
+        })
+    else:
+        rows = conn.execute("""
+            SELECT province, COUNT(DISTINCT herb_name) as herb_count,
+                   COUNT(*) as record_count,
+                   SUM(is_daodi) as daodi_count,
+                   SUM(annual_output_tons) as total_output
+            FROM herb_origins
+            WHERE province != ''
+            GROUP BY province
+            ORDER BY herb_count DESC
+        """).fetchall()
+        conn.close()
+        return jsonify([{
+            "province": r["province"],
+            "herbCount": r["herb_count"],
+            "recordCount": r["record_count"],
+            "daodiCount": r["daodi_count"] or 0,
+            "totalOutputTons": r["total_output"],
+        } for r in rows])
+
+
+@app.route("/api/origins/daodi")
+def api_origins_daodi():
+    """获取所有道地药材产区列表（含产量）"""
+    conn = get_connection()
+    rows = conn.execute("""
+        SELECT herb_name, origin, province, description,
+               annual_output_tons, output_percent, data_year
+        FROM herb_origins
+        WHERE is_daodi = 1
+        ORDER BY annual_output_tons DESC NULLS LAST, province, herb_name
+    """).fetchall()
+    conn.close()
+    return jsonify([{
+        "herbName": r["herb_name"],
+        "origin": r["origin"],
+        "province": r["province"],
+        "description": r["description"],
+        "annualOutputTons": r["annual_output_tons"],
+        "outputPercent": r["output_percent"],
+        "dataYear": r["data_year"],
+    } for r in rows])
+
+
+@app.route("/api/origins/production")
+def api_origins_production():
+    """获取有产量数据的品种列表
+
+    Query params:
+        sort: 排序方式 tons(默认) | percent | herb
+    """
+    sort = request.args.get("sort", "tons")
+    conn = get_connection()
+
+    order = "annual_output_tons DESC"
+    if sort == "percent":
+        order = "output_percent DESC"
+    elif sort == "herb":
+        order = "herb_name ASC"
+
+    rows = conn.execute(f"""
+        SELECT herb_name, origin, province, description, is_daodi,
+               annual_output_tons, planting_area_mu, output_percent, data_year
+        FROM herb_origins
+        WHERE annual_output_tons IS NOT NULL
+        ORDER BY {order}
+    """).fetchall()
+    conn.close()
+
+    return jsonify({
+        "count": len(rows),
+        "data": [{
+            "herbName": r["herb_name"],
+            "origin": r["origin"],
+            "province": r["province"],
+            "isDaodi": bool(r["is_daodi"]),
+            "description": r["description"],
+            "annualOutputTons": r["annual_output_tons"],
+            "plantingAreaMu": r["planting_area_mu"],
+            "outputPercent": r["output_percent"],
+            "dataYear": r["data_year"],
+        } for r in rows],
+    })
+
+
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=5001, debug=True)

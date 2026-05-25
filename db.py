@@ -118,6 +118,24 @@ def init_db():
             UNIQUE(name, date)
         );
 
+        -- 药材产地信息表
+        CREATE TABLE IF NOT EXISTS herb_origins (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            herb_name TEXT NOT NULL,
+            origin TEXT NOT NULL,
+            is_daodi INTEGER NOT NULL DEFAULT 0,
+            province TEXT NOT NULL DEFAULT '',
+            description TEXT NOT NULL DEFAULT '',
+            annual_output_tons REAL,
+            planting_area_mu REAL,
+            output_percent REAL,
+            data_year INTEGER,
+            source TEXT NOT NULL DEFAULT 'crawl',
+            created_at TEXT NOT NULL DEFAULT (datetime('now')),
+            updated_at TEXT NOT NULL DEFAULT (datetime('now')),
+            UNIQUE(herb_name, origin)
+        );
+
         CREATE INDEX IF NOT EXISTS idx_daily_prices_variety_date
             ON daily_prices(variety_id, date);
         CREATE INDEX IF NOT EXISTS idx_price_compare_variety_date
@@ -130,6 +148,10 @@ def init_db():
             ON estimated_daily_prices(name, date);
         CREATE INDEX IF NOT EXISTS idx_index_varieties_name
             ON index_varieties(name);
+        CREATE INDEX IF NOT EXISTS idx_herb_origins_name
+            ON herb_origins(herb_name);
+        CREATE INDEX IF NOT EXISTS idx_herb_origins_province
+            ON herb_origins(province);
     """)
     conn.commit()
     conn.close()
@@ -282,6 +304,48 @@ def bulk_upsert_estimated_prices(conn: sqlite3.Connection, name: str,
         """,
         [(name, date, price, source) for date, price, source in records]
     )
+
+
+def upsert_herb_origin(conn: sqlite3.Connection, herb_name: str, origin: str,
+                       is_daodi: bool = False, province: str = "",
+                       description: str = "", source: str = "crawl",
+                       annual_output_tons: float | None = None,
+                       planting_area_mu: float | None = None,
+                       output_percent: float | None = None,
+                       data_year: int | None = None):
+    """插入或更新药材产地信息"""
+    conn.execute(
+        """INSERT INTO herb_origins (herb_name, origin, is_daodi, province,
+                                     description, annual_output_tons, planting_area_mu,
+                                     output_percent, data_year, source, updated_at)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'))
+           ON CONFLICT(herb_name, origin) DO UPDATE SET
+               is_daodi = excluded.is_daodi,
+               province = CASE WHEN excluded.province != '' THEN excluded.province
+                               ELSE herb_origins.province END,
+               description = CASE WHEN excluded.description != '' THEN excluded.description
+                                   ELSE herb_origins.description END,
+               annual_output_tons = COALESCE(excluded.annual_output_tons, herb_origins.annual_output_tons),
+               planting_area_mu = COALESCE(excluded.planting_area_mu, herb_origins.planting_area_mu),
+               output_percent = COALESCE(excluded.output_percent, herb_origins.output_percent),
+               data_year = COALESCE(excluded.data_year, herb_origins.data_year),
+               source = excluded.source,
+               updated_at = datetime('now')
+        """,
+        (herb_name, origin, int(is_daodi), province, description,
+         annual_output_tons, planting_area_mu, output_percent, data_year, source)
+    )
+
+
+def get_herb_origins(conn: sqlite3.Connection, herb_name: str) -> list[dict]:
+    """获取指定药材的所有产地"""
+    rows = conn.execute(
+        """SELECT herb_name, origin, is_daodi, province, description, source
+           FROM herb_origins WHERE herb_name = ?
+           ORDER BY is_daodi DESC, origin""",
+        (herb_name,)
+    ).fetchall()
+    return [dict(r) for r in rows]
 
 
 if __name__ == "__main__":
