@@ -134,6 +134,66 @@ def api_forecast():
         return jsonify({"error": f"预测失败: {str(e)}"}), 500
 
 
+@app.route("/api/forecast/factors")
+def api_forecast_factors():
+    """获取指定品种的预测多因子分析
+
+    Query params:
+        name: 药材名称（必填）
+    """
+    name = request.args.get("name", "")
+    if not name:
+        return jsonify({"error": "缺少 name 参数"}), 400
+
+    try:
+        from forecast_factors import get_price_adjustment
+        result = get_price_adjustment(name)
+        result["name"] = name
+        return jsonify(result)
+    except Exception as e:
+        return jsonify({"error": f"因子分析失败: {str(e)}"}), 500
+
+
+@app.route("/api/weather/alerts")
+def api_weather_alerts():
+    """获取指定药材产区的气象异常预警
+
+    Query params:
+        name: 药材名称（必填）
+    """
+    name = request.args.get("name", "")
+    if not name:
+        return jsonify({"error": "缺少 name 参数"}), 400
+
+    try:
+        from weather_monitor import WeatherMonitor
+        monitor = WeatherMonitor()
+        result = monitor.check_herb_alerts(name)
+        return jsonify(result)
+    except Exception as e:
+        return jsonify({"error": f"气象检测失败: {str(e)}"}), 500
+
+
+@app.route("/api/weather/summary")
+def api_weather_summary():
+    """获取指定药材主要产区近7天天气概况
+
+    Query params:
+        name: 药材名称（必填）
+    """
+    name = request.args.get("name", "")
+    if not name:
+        return jsonify({"error": "缺少 name 参数"}), 400
+
+    try:
+        from weather_monitor import WeatherMonitor
+        monitor = WeatherMonitor()
+        result = monitor.get_production_area_weather_summary(name)
+        return jsonify(result)
+    except Exception as e:
+        return jsonify({"error": f"天气查询失败: {str(e)}"}), 500
+
+
 # ── TCM 分析 API ─────────────────────────────────────────
 
 @app.route("/api/tcm/symptoms")

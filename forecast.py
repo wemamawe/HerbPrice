@@ -86,8 +86,8 @@ def _ridge_trend_forecast(df: pd.DataFrame, periods: int) -> np.ndarray:
 def _ema_momentum_forecast(df: pd.DataFrame, periods: int) -> np.ndarray:
     """多周期 EMA 动量外推 — 短+中+长三层动量叠加
 
-    含末端异常值检测：若最后一天价格偏离近 7 天中位数超过 2 倍 MAD，
-    则使用中位数作为起点，避免数据跳变放大预测偏差。
+    含末端异常值检测 + 历史底部动量抑制。
+    当价格接近历史低位时，下跌动量自动减弱（均值回归）。
     """
     prices = df["y"].values
     series = pd.Series(prices)
@@ -99,10 +99,16 @@ def _ema_momentum_forecast(df: pd.DataFrame, periods: int) -> np.ndarray:
     last_raw = prices[-1]
     pct_dev = abs(last_raw - median_7) / max(median_7, 0.01)
     if (mad_7 > 0 and abs(last_raw - median_7) > 2 * mad_7) or pct_dev > 0.03:
-        # 最后一天偏离中位数超过 2×MAD 或超过 3%，用中位数代替
         last_price = median_7
     else:
         last_price = last_raw
+
+    # 历史价格统计（用于动量约束）
+    historical_min = float(np.min(prices))
+    historical_median = float(np.median(prices))
+    # 当前价格在历史区间中的位置 (0=历史最低, 1=历史中位数以上)
+    price_position = (last_price - historical_min) / max(historical_median - historical_min, 0.01)
+    price_position = max(0, min(2, price_position))
 
     # 三层 EMA
     ema_7 = series.ewm(span=7).mean().iloc[-1]
@@ -130,7 +136,17 @@ def _ema_momentum_forecast(df: pd.DataFrame, periods: int) -> np.ndarray:
         daily_change = (momentum_short * d_short * 0.5 +
                         momentum_mid * d_mid * 0.3 +
                         momentum_long * d_long * 0.2)
+
+        # 底部动量抑制：当价格接近历史低位时，抑制下跌动量
+        # price_position < 0.5 表示已经低于历史区间下半部分
+        if daily_change < 0 and price_position < 1.0:
+            # 越接近底部，下跌动量抑制越强
+            damping = max(0.1, price_position)
+            daily_change *= damping
+
         cur += daily_change
+        # 硬底线：不低于历史最低价的70%
+        cur = max(cur, historical_min * 0.7)
         result[i] = cur
     return result
 
@@ -194,13 +210,14 @@ def _calc_confidence_band(df: pd.DataFrame, ensemble: np.ndarray,
 
 
 def forecast_variety(name: str, periods: int = FORECAST_DAYS) -> dict:
-    """对指定品种进行自适应集成预测
+    """对指定品种进行自适应集成预测（含多因子调整）
 
     改进要点：
     - 短期EMA主导(85%→65%)，中长期Prophet逐步提升
     - 多周期EMA(7/30/90天)捕捉不同时间尺度的动量
     - 波动率自适应置信区间
     - 起点平滑从5天扩展到10天（更柔和过渡）
+    - 【新增】多因子调整：季节、供给周期、产区集中度
 
     Returns:
         {
@@ -209,6 +226,7 @@ def forecast_variety(name: str, periods: int = FORECAST_DAYS) -> dict:
             "lastPrice": float,
             "forecast": [...],
             "method": str,
+            "factors": dict,  # 多因子详情
         }
     """
     df = _load_price_series(name)
@@ -234,14 +252,51 @@ def forecast_variety(name: str, periods: int = FORECAST_DAYS) -> dict:
                 weights[:, 1] * ridge_pred +
                 weights[:, 2] * ema_pred)
 
-    # 5) 混合置信区间
+    # 5) 多因子调整
+    factors_info = None
+    try:
+        from forecast_factors import get_price_adjustment
+        factors = get_price_adjustment(name)
+        factor = factors["factor"]
+
+        if abs(factor - 1.0) > 0.005:
+            # 因子渐进应用：前30天线性过渡，之后完全生效
+            for i in range(periods):
+                blend = min(1.0, (i + 1) / 30)  # 30天内线性过渡
+                day_factor = 1.0 + (factor - 1.0) * blend
+                ensemble[i] *= day_factor
+
+        factors_info = factors
+    except Exception:
+        pass
+
+    # 6) 历史价格底部约束 —— 防止预测跌破历史合理区间
+    # 取历史最低价的80%作为硬底线，近2年最低价作为软底线
+    all_prices = df["y"].values
+    historical_min = float(np.min(all_prices))
+    recent_2y = all_prices[-730:] if len(all_prices) >= 730 else all_prices
+    recent_min = float(np.min(recent_2y))
+
+    # 硬底线：历史最低价的70%（任何情况不应突破）
+    hard_floor = historical_min * 0.7
+    # 软底线：近2年最低价的85%（正常情况的合理下限）
+    soft_floor = recent_min * 0.85
+
+    # 对预测值应用底部约束
+    for i in range(periods):
+        # 越远期越倾向于回归软底线（均值回归特性）
+        floor = soft_floor + (hard_floor - soft_floor) * min(i / periods, 0.5)
+        if ensemble[i] < floor:
+            ensemble[i] = floor
+
+    # 7) 混合置信区间
     lower, upper = _calc_confidence_band(
         df, ensemble, p_lower, p_upper, periods
     )
 
-    # 价格不能为负
-    ensemble = np.maximum(ensemble, 0.01)
-    lower = np.maximum(lower, 0.01)
+    # 价格不能为负，且不低于历史底部
+    ensemble = np.maximum(ensemble, hard_floor)
+    lower = np.maximum(lower, hard_floor)
 
     # 起点平滑过渡（10天指数衰减）
     smooth_days = min(10, periods)
@@ -256,8 +311,10 @@ def forecast_variety(name: str, periods: int = FORECAST_DAYS) -> dict:
     w_mid = weights[min(89, periods - 1)]
     method = (f"自适应集成: 短期 EMA({w0[2]:.0%})+Prophet({w0[0]:.0%})+Ridge({w0[1]:.0%})"
               f" → 长期 EMA({w_mid[2]:.0%})+Prophet({w_mid[0]:.0%})+Ridge({w_mid[1]:.0%})")
+    if factors_info and abs(factors_info["factor"] - 1.0) > 0.005:
+        method += f" | 多因子修正 {factors_info['factor']:.2%}"
 
-    return {
+    result = {
         "name": name,
         "lastDate": last_date.strftime("%Y-%m-%d"),
         "lastPrice": round(last_price, 2),
@@ -272,6 +329,10 @@ def forecast_variety(name: str, periods: int = FORECAST_DAYS) -> dict:
         ],
         "method": method,
     }
+    if factors_info:
+        result["factors"] = factors_info
+
+    return result
 
 
 if __name__ == "__main__":
