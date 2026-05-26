@@ -1,0 +1,47 @@
+[
+  {
+    "case": "新闻解读-干旱",
+    "time": 5.5,
+    "tokens": {
+      "prompt_tokens": 647,
+      "completion_tokens": 157
+    },
+    "content": "```json\n{\n  \"events\": [\n    {\n      \"herb_name\": \"当归\",\n      \"event_type\": \"drought\",\n      \"severity\": 0.8,\n      \"affected_region\": \"甘肃岷县\",\n      \"affected_pct\": 0.6,\n      \"summary\": \"甘肃岷县遭遇40年不遇干旱，当归主产区降雨量不足常年三分之一，部分地块当归苗枯死，预计减产30%以上，供给减少将推动当归价格上涨\",\n      \"confidence\": 0.95,\n      \"price_direction\": \"up\",\n      \"estimated_impact_pct\": 15\n    }\n  ],\n  \"no_event_reason\": \"\"\n}\n```"
+  },
+  {
+    "case": "新闻解读-扩种",
+    "time": 2.4,
+    "tokens": {
+      "prompt_tokens": 644,
+      "completion_tokens": 144
+    },
+    "content": "```json\n{\n  \"events\": [\n    {\n      \"herb_name\": \"白术\",\n      \"event_type\": \"area_increase\",\n      \"severity\": 0.6,\n      \"affected_region\": \"亳州市\",\n      \"affected_pct\": 0.3,\n      \"summary\": \"2025年亳州白术种植面积较去年增长60%达45万亩，创历史新高，明年供应量将大幅增加\",\n      \"confidence\": 0.95,\n      \"price_direction\": \"down\",\n      \"estimated_impact_pct\": -10\n    }\n  ],\n  \"no_event_reason\": \"\"\n}\n```"
+  },
+  {
+    "case": "新闻解读-复杂",
+    "time": 4.9,
+    "tokens": {
+      "prompt_tokens": 670,
+      "completion_tokens": 255
+    },
+    "content": "```json\n{\n  \"events\": [\n    {\n      \"herb_name\": \"三七\",\n      \"event_type\": \"drought\",\n      \"severity\": 1.0,\n      \"affected_region\": \"云南文山\",\n      \"affected_pct\": 0.6,\n      \"summary\": \"云南文山三七产区遭遇严重干旱，部分地块绝收，影响三七供给\",\n      \"confidence\": 0.9,\n      \"price_direction\": \"up\",\n      \"estimated_impact_pct\": 8\n    },\n    {\n      \"herb_name\": \"三七\",\n      \"event_type\": \"area_increase\",\n      \"severity\": 0.6,\n      \"affected_region\": \"云南文山新老产区\",\n      \"affected_pct\": 0.4,\n      \"summary\": \"前两年高价刺激下大量扩种的新地块今年开始产出，增加三七供给\",\n      \"confidence\": 0.85,\n      \"price_direction\": \"down\",\n      \"estimated_impact"
+  },
+  {
+    "case": "研判-白术",
+    "time": 9.2,
+    "tokens": {
+      "prompt_tokens": 764,
+      "completion_tokens": 402
+    },
+    "content": "```json\n{\n  \"summary\": \"白术当前价18.33元，处近1年低位，短期延续小幅下行，供需基本平衡，扩种供给释放压制价格，下跌空间有限。\",\n  \"direction\": \"down\",\n  \"confidence\": 0.7,\n  \"time_horizon\": \"短期(1-30天)预期\",\n  \"price_range\": {\n    \"30d_low\": 17.9,\n    \"30d_high\": 18.33,\n    \"90d_low\": 18.0,\n    \"90d_high\": 18.33\n  },\n  \"key_factors\": [\n    {\"factor\": \"扩种供给释放\", \"impact\": \"negative\", \"weight\": 0.5, \"detail\": \"2年前高价期扩种，当前供给集中释放，压制价格上行\"},\n    {\"factor\": \"供需格局\", \"impact\": \"neutral\", \"weight\": 0.3, \"detail\": \"供需缺口-3650吨，缺口率-4.76%，处于基本平衡状态\"},\n    {\"factor\": \"价格位置\", \"impact\": \"neutral\", \"weight\": 0.2, \"detail\": \"当前价已触及近1年最低位，下跌空间有限\"}\n  ],\n  \"risks\": ["
+  },
+  {
+    "case": "研判-当归",
+    "time": 11.3,
+    "tokens": {
+      "prompt_tokens": 775,
+      "completion_tokens": 446
+    },
+    "content": "```json\n{\n  \"summary\": \"当归当前价56.2元处近1年低位，短期供需偏紧但扩种供给释放压制，短期小幅震荡，中期仍存下行压力。\",\n  \"direction\": \"neutral\",\n  \"confidence\": 0.85,\n  \"time_horizon\": \"短期(1-30天)预期\",\n  \"price_range\": {\n    \"30d_low\": 55.94,\n    \"30d_high\": 56.2,\n    \"90d_low\": 55.51,\n    \"90d_high\": 56.2\n  },\n  \"key_factors\": [\n    {\"factor\": \"扩种供给释放\", \"impact\": \"negative\", \"weight\": 0.3, \"detail\": \"2年前高价期扩种，当前供给释放，压制价格上行\"},\n    {\"factor\": \"产区气象异常\", \"impact\": \"positive\", \"weight\": 0.25, \"detail\": \"近期产区气象异常，支撑价格，降低下跌空间\"},\n    {\"factor\": \"供需缺口\", \"impact\": \"positive\", \"weight\": 0.2, \"detail\": \"当前供不应求，供需面支撑价格，但供给释放时滞未完全消化\"},\n    {\"factor\":"
+  }
+]

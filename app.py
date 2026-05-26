@@ -199,6 +199,103 @@ def api_weather_summary():
         return jsonify({"error": f"天气查询失败: {str(e)}"}), 500
 
 
+# ── 供需平衡 & XGBoost & LLM 研判 API ────────────────────
+
+@app.route("/api/supply-demand")
+def api_supply_demand():
+    """获取品种供需平衡表"""
+    name = request.args.get("name", "")
+    if not name:
+        return jsonify({"error": "缺少 name 参数"}), 400
+    try:
+        from supply_demand import calc_supply_demand_balance
+        result = calc_supply_demand_balance(name)
+        return jsonify(result)
+    except Exception as e:
+        return jsonify({"error": f"供需分析失败: {str(e)}"}), 500
+
+
+@app.route("/api/forecast/xgb")
+def api_forecast_xgb():
+    """XGBoost 跨品种模型预测"""
+    name = request.args.get("name", "")
+    if not name:
+        return jsonify({"error": "缺少 name 参数"}), 400
+    try:
+        from forecast_xgb import predict_herb
+        result = predict_herb(name)
+        return jsonify(result)
+    except Exception as e:
+        return jsonify({"error": f"XGBoost 预测失败: {str(e)}"}), 500
+
+
+@app.route("/api/research")
+def api_research():
+    """LLM 综合研判研报"""
+    name = request.args.get("name", "")
+    if not name:
+        return jsonify({"error": "缺少 name 参数"}), 400
+    try:
+        from research_agent import generate_research_report, generate_report_fallback
+        from llm_client import get_llm_client
+        client = get_llm_client()
+        if client.is_available():
+            result = generate_research_report(name, client)
+        else:
+            result = generate_report_fallback(name)
+        return jsonify(result)
+    except Exception as e:
+        return jsonify({"error": f"研判生成失败: {str(e)}"}), 500
+
+
+@app.route("/api/research/pdf")
+def api_research_pdf():
+    """生成麦肯锡风格 PDF 研判报告并下载"""
+    name = request.args.get("name", "")
+    if not name:
+        return jsonify({"error": "缺少 name 参数"}), 400
+    try:
+        from research_agent import generate_research_report, generate_report_fallback
+        from llm_client import get_llm_client
+        client = get_llm_client()
+        if client.is_available():
+            report = generate_research_report(name, client)
+        else:
+            report = generate_report_fallback(name)
+
+        # 生成 PDF
+        from report_gen import generate_herb_report_pdf
+        pdf_path = generate_herb_report_pdf(name, report)
+
+        from flask import send_file
+        return send_file(pdf_path, as_attachment=True,
+                         download_name=f"{name}_研判报告.pdf",
+                         mimetype="application/pdf")
+    except ImportError as e:
+        return jsonify({"error": f"PDF 生成依赖缺失: {str(e)}（需安装 reportlab matplotlib）"}), 500
+    except Exception as e:
+        return jsonify({"error": f"PDF 生成失败: {str(e)}"}), 500
+
+
+@app.route("/api/news/interpret", methods=["POST"])
+def api_news_interpret():
+    """LLM 解读新闻文本"""
+    data = request.get_json(force=True, silent=True) or {}
+    text = data.get("text", "")
+    if not text:
+        return jsonify({"error": "缺少 text 参数"}), 400
+    try:
+        from llm_news_interpreter import interpret_news, save_events_to_db
+        result = interpret_news(text)
+        events = result.get("events", [])
+        if events:
+            saved = save_events_to_db(events)
+            result["saved_count"] = saved
+        return jsonify(result)
+    except Exception as e:
+        return jsonify({"error": f"新闻解读失败: {str(e)}"}), 500
+
+
 # ── TCM 分析 API ─────────────────────────────────────────
 
 @app.route("/api/tcm/symptoms")

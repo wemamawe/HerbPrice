@@ -32,3 +32,4 @@ __MACOSX/
 .codebuddy/
 .idea/
 .vscode/
+.env

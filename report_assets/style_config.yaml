@@ -1,0 +1,177 @@
+# style_config.yaml — 多品牌风格设计 Token
+# 生成报告脚本可直接 import 此文件获取设计系统参数
+# 使用方式：设置 active_brand 字段选择品牌，或在脚本中传入 brand_key 参数
+
+# ─── 激活品牌（修改此字段切换风格）────────────────────────────────────────
+active_brand: "mckinsey"   # 使用麦肯锡风格
+
+# ─── 品牌预设包（Brand Presets）─────────────────────────────────────────────
+brand_presets:
+
+  # 默认品牌：Yoga Research Studio（深青色系）
+  yoga:
+    studio_name: "Yoga Research Studio"
+    studio_name_cn: "Yoga 研究工作室"
+    tagline: "Independent Research & Insights"
+    tagline_cn: "独立研究 · 洞见未来"
+    copyright: "© Yoga Research Studio"
+    cover_byline: "Yoga Research Studio"
+    footer_copyright: "© Yoga Research Studio. All rights reserved."
+    disclaimer: "本报告内容仅供参考，不构成任何投资建议。"
+    colors:
+      primary: "#0A2240"       # 深海蓝
+      secondary: "#007B8A"     # 青碧
+      accent: "#00A0B0"        # 亮青（章节编号）
+      body_text: "#4A4A4A"
+      caption_text: "#9B9B9B"
+      light_bg: "#F5F9FA"
+      border: "#D0E4E8"
+      cover_bg: "#0A2240"      # 封面背景色
+      cover_stripe: "#007B8A"  # 封面装饰条
+
+  # 麦肯锡风：深蓝 + 黑色系
+  mckinsey:
+    studio_name: "McKinsey & Company"
+    studio_name_cn: "麦肯锡全球研究院"
+    tagline: "Global Institute Research"
+    tagline_cn: "全球研究 · 战略洞察"
+    copyright: "© McKinsey & Company"
+    cover_byline: "McKinsey Global Institute"
+    footer_copyright: "© McKinsey & Company. All rights reserved."
+    disclaimer: "本报告内容仅供参考，不构成任何投资建议。"
+    colors:
+      primary: "#003366"       # 麦肯锡深蓝
+      secondary: "#001A33"     # 更深蓝
+      accent: "#0066CC"        # 麦肯锡蓝（章节编号）
+      body_text: "#333333"
+      caption_text: "#888888"
+      light_bg: "#F0F4F8"
+      border: "#BDD0E8"
+      cover_bg: "#003366"
+      cover_stripe: "#0066CC"
+
+  # 埃森哲风：紫色 + 霓虹紫
+  accenture:
+    studio_name: "Accenture"
+    studio_name_cn: "埃森哲战略咨询"
+    tagline: "Technology & Strategy"
+    tagline_cn: "技术赋能 · 战略引领"
+    copyright: "© Accenture"
+    cover_byline: "Accenture Strategy & Consulting"
+    footer_copyright: "© Accenture. All rights reserved."
+    disclaimer: "本报告内容仅供参考，不构成任何投资建议。"
+    colors:
+      primary: "#460073"       # 埃森哲紫
+      secondary: "#A100FF"     # 霓虹紫
+      accent: "#A100FF"        # 章节编号
+      body_text: "#3D3D3D"
+      caption_text: "#888888"
+      light_bg: "#F5F0FF"
+      border: "#D4B3FF"
+      cover_bg: "#460073"
+      cover_stripe: "#A100FF"
+
+  # 高盛风：深蓝 + 金色
+  goldman:
+    studio_name: "Goldman Sachs"
+    studio_name_cn: "高盛集团研究部"
+    tagline: "Global Investment Research"
+    tagline_cn: "全球投资研究"
+    copyright: "© Goldman Sachs"
+    cover_byline: "Goldman Sachs Global Investment Research"
+    footer_copyright: "© Goldman Sachs. All rights reserved."
+    disclaimer: "本报告仅供专业投资者参考，不构成任何投资建议。"
+    colors:
+      primary: "#003C71"       # 高盛深蓝
+      secondary: "#B8962E"     # 高盛金
+      accent: "#B8962E"        # 金色章节编号
+      body_text: "#2C2C2C"
+      caption_text: "#777777"
+      light_bg: "#FBF8F0"
+      border: "#E8D8A0"
+      cover_bg: "#003C71"
+      cover_stripe: "#B8962E"
+
+  # 简洁商务风：黑白灰系
+  minimal:
+    studio_name: "Research Studio"
+    studio_name_cn: "研究工作室"
+    tagline: "Insights & Analysis"
+    tagline_cn: "洞察 · 分析"
+    copyright: "© Research Studio"
+    cover_byline: "Research Studio"
+    footer_copyright: "© Research Studio. All rights reserved."
+    disclaimer: "本报告内容仅供参考，不构成任何投资建议。"
+    colors:
+      primary: "#1A1A1A"       # 近黑
+      secondary: "#4A4A4A"     # 深灰
+      accent: "#666666"        # 中灰（章节编号）
+      body_text: "#333333"
+      caption_text: "#999999"
+      light_bg: "#F8F8F8"
+      border: "#DDDDDD"
+      cover_bg: "#1A1A1A"
+      cover_stripe: "#666666"
+
+# ─── 通用布局参数（所有品牌共用）────────────────────────────────────────────
+report:
+  name: "research-report-cn"
+  page_width: 595       # pt (A4)
+  page_height: 842      # pt (A4)
+  orientation: portrait
+
+fonts:
+  body_cn: "NotoSansSC-Regular"
+  bold_cn: "NotoSansSC-Bold"
+
+font_sizes:
+  cover_title: 22
+  chapter_title: 21
+  section_heading: 13
+  subheading: 10.5
+  body: 10
+  table_body: 9
+  caption: 8.5
+  footer: 7.5
+
+margins:
+  left: 50
+  right: 50
+  top: 55
+  bottom: 50
+
+layout:
+  content_width: 495
+  section_num_col: 2.4   # cm，章节番号列宽（不低于2.4cm）
+
+line_heights:
+  heading: 26
+  body: 18
+  caption: 13
+  table_row: 14
+
+# ─── 图表模板配置（Chart Templates）────────────────────────────────────────
+chart_templates:
+  # 支持的图表类型
+  types:
+    - bar           # 柱状图（市场份额、对比）
+    - line          # 折线图（趋势增长）
+    - pie           # 饼图（占比分布）
+    - waterfall     # 瀑布图（价值拆解、麦肯锡标志）
+    - radar         # 雷达图（多维能力对比）
+    - bubble        # 气泡矩阵（市场吸引力 vs 竞争地位）
+    - heatmap       # 热力图（风险矩阵）
+    - quadrant      # 四象限（优先级矩阵）
+
+  # 图表尺寸默认值
+  default_width_cm: 14
+  default_dpi: 150
+
+  # 图表颜色序列（品牌主色 + 渐变，可被品牌配置覆盖）
+  color_sequence:
+    - "#007B8A"
+    - "#0A2240"
+    - "#00A0B0"
+    - "#4A90A4"
+    - "#8AB8C2"
+    - "#C5DCE0"
