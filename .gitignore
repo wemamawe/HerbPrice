@@ -33,3 +33,4 @@ __MACOSX/
 .idea/
 .vscode/
 .env
+report_assets/fonts/*.ttf
