@@ -951,7 +951,7 @@ const PROVINCE_FULL_NAME = {
 async function ensureChinaMap() {
   if (chinaMapLoaded) return true;
   try {
-    const resp = await fetch('https://geo.datav.aliyun.com/areas_v3/bound/100000_full.json');
+    const resp = await fetch('./china.json');
     const geoJson = await resp.json();
     echarts.registerMap('china', geoJson);
     chinaMapLoaded = true;
