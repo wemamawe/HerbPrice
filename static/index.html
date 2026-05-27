@@ -7,485 +7,608 @@
 <link rel="icon" type="image/png" href="./favicon.png">
 <script src="https://cdn.jsdelivr.net/npm/echarts@5/dist/echarts.min.js"></script>
 <style>
+  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap');
+
   :root {
-    --bg: #0a0f1a;
-    --bg-subtle: #111827;
-    --card: #151d2e;
-    --card-hover: #1a2438;
-    --border: #1f2d44;
-    --border-hover: #2a3f5f;
-    --text: #e8edf5;
-    --text-dim: #7b8ba5;
-    --text-muted: #4a5568;
-    --accent: #4f8fff;
-    --accent-dim: rgba(79,143,255,0.12);
-    --orange: #ff8c42;
-    --orange-dim: rgba(255,140,66,0.12);
-    --green: #34d399;
-    --green-dim: rgba(52,211,153,0.12);
-    --red: #f87171;
-    --red-dim: rgba(248,113,113,0.12);
-    --purple: #a78bfa;
-    --purple-dim: rgba(167,139,250,0.12);
-    --shadow-sm: 0 1px 3px rgba(0,0,0,0.3);
-    --shadow-md: 0 4px 16px rgba(0,0,0,0.4);
-    --shadow-lg: 0 8px 40px rgba(0,0,0,0.5);
-    --radius: 14px;
-    --radius-sm: 10px;
+    --bg: #09090b;
+    --bg-elevated: #18181b;
+    --bg-subtle: #27272a;
+    --card: #18181b;
+    --card-hover: #1f1f23;
+    --border: rgba(255,255,255,0.06);
+    --border-hover: rgba(255,255,255,0.12);
+    --text: #fafafa;
+    --text-secondary: #a1a1aa;
+    --text-muted: #52525b;
+    --accent: #3b82f6;
+    --accent-dim: rgba(59,130,246,0.1);
+    --accent-hover: #60a5fa;
+    --emerald: #10b981;
+    --emerald-dim: rgba(16,185,129,0.1);
+    --red: #ef4444;
+    --red-dim: rgba(239,68,68,0.1);
+    --amber: #f59e0b;
+    --amber-dim: rgba(245,158,11,0.1);
+    --violet: #8b5cf6;
+    --violet-dim: rgba(139,92,246,0.1);
+    --radius: 12px;
+    --radius-sm: 8px;
+    --radius-xs: 6px;
+    --font-sans: 'Inter', -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
+    --font-mono: 'JetBrains Mono', 'SF Mono', 'Fira Code', monospace;
+    --shadow-sm: 0 1px 2px rgba(0,0,0,0.4);
+    --shadow-md: 0 4px 12px rgba(0,0,0,0.5);
+    --shadow-lg: 0 12px 40px rgba(0,0,0,0.6);
+    --transition: 0.2s cubic-bezier(0.16, 1, 0.3, 1);
   }
 
   * { margin: 0; padding: 0; box-sizing: border-box; }
 
   body {
-    font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'Segoe UI', system-ui, sans-serif;
-    background: var(--bg); color: var(--text); min-height: 100vh;
+    font-family: var(--font-sans);
+    background: var(--bg); color: var(--text);
+    min-height: 100dvh;
     -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
   }
 
-  .container { max-width: 1280px; margin: 0 auto; padding: 24px 28px; }
-
-  /* ── Header ── */
-  header {
-    text-align: center; padding: 32px 0 28px; position: relative;
-  }
-  header::before {
-    content: '';
-    position: absolute; top: -80px; left: 50%; transform: translateX(-50%);
-    width: 600px; height: 300px;
-    background: radial-gradient(ellipse, rgba(79,143,255,0.08) 0%, transparent 70%);
-    pointer-events: none;
-  }
-  header h1 {
-    font-size: 28px; font-weight: 700; letter-spacing: 0.5px;
-    background: linear-gradient(135deg, #fff 0%, #a0c4ff 100%);
-    -webkit-background-clip: text; -webkit-text-fill-color: transparent;
-    background-clip: text;
-  }
-  header p {
-    color: var(--text-dim); font-size: 13px; margin-top: 8px;
-    letter-spacing: 0.3px;
+  .app-layout {
+    max-width: 1440px; margin: 0 auto;
+    padding: 0 32px;
   }
 
-  /* ── Controls ── */
-  .controls {
-    background: var(--card);
-    border: 1px solid var(--border);
-    border-radius: var(--radius);
-    padding: 20px 24px;
-    margin-bottom: 20px;
-    box-shadow: var(--shadow-sm);
+  /* ===== HEADER ===== */
+  .app-header {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 20px 0;
+    border-bottom: 1px solid var(--border);
   }
-  .controls-row {
-    display: flex; gap: 16px; align-items: end; flex-wrap: wrap;
+  .app-brand {
+    display: flex; align-items: center; gap: 12px;
   }
-  .field { display: flex; flex-direction: column; gap: 6px; }
-  .field label {
-    font-size: 11px; color: var(--text-dim); font-weight: 600;
-    text-transform: uppercase; letter-spacing: 0.8px;
+  .app-brand-icon {
+    width: 32px; height: 32px; border-radius: 8px;
+    overflow: hidden;
   }
-  .field.grow { flex: 1; min-width: 200px; }
+  .app-brand-icon img { width: 100%; height: 100%; object-fit: cover; }
+  .app-brand-text h1 {
+    font-size: 16px; font-weight: 700; letter-spacing: -0.02em;
+    color: var(--text);
+  }
+  .app-brand-text p {
+    font-size: 11px; color: var(--text-muted);
+    font-family: var(--font-mono); letter-spacing: 0.02em;
+  }
+  .app-nav {
+    display: flex; align-items: center; gap: 4px;
+  }
+  .app-nav a {
+    font-size: 13px; color: var(--text-secondary);
+    text-decoration: none; padding: 6px 12px;
+    border-radius: var(--radius-xs); transition: all var(--transition);
+    font-weight: 500;
+  }
+  .app-nav a:hover { color: var(--text); background: rgba(255,255,255,0.04); }
+  .app-nav a.active { color: var(--text); background: rgba(255,255,255,0.06); }
 
+  /* ===== HERO STRIP ===== */
+  .hero-strip {
+    display: grid; grid-template-columns: 1fr auto;
+    align-items: center; gap: 24px;
+    padding: 28px 0 24px;
+  }
+  .hero-left h2 {
+    font-size: 28px; font-weight: 800; letter-spacing: -0.03em;
+    color: var(--text); line-height: 1.1;
+  }
+  .hero-left p {
+    font-size: 14px; color: var(--text-secondary);
+    margin-top: 6px; max-width: 480px; line-height: 1.5;
+  }
+  .hero-actions {
+    display: flex; gap: 8px;
+  }
+
+  /* ===== TOOLBAR ===== */
+  .toolbar {
+    display: flex; align-items: center; gap: 12px;
+    padding: 16px 0; flex-wrap: wrap;
+  }
+  .toolbar-group {
+    display: flex; align-items: center; gap: 8px;
+  }
+  .toolbar-divider {
+    width: 1px; height: 24px; background: var(--border); margin: 0 4px;
+  }
   .search-wrap { position: relative; }
   .search-wrap input {
-    width: 100%; background: var(--bg-subtle); border: 1px solid var(--border);
-    border-radius: var(--radius-sm); color: var(--text); padding: 10px 14px;
-    font-size: 14px; outline: none; transition: all 0.2s;
+    width: 220px; background: var(--bg-elevated);
+    border: 1px solid var(--border); border-radius: var(--radius-sm);
+    color: var(--text); padding: 8px 12px 8px 36px;
+    font-size: 13px; outline: none; transition: all var(--transition);
+    font-family: var(--font-sans);
   }
   .search-wrap input:focus {
     border-color: var(--accent);
     box-shadow: 0 0 0 3px var(--accent-dim);
+    width: 280px;
   }
   .search-wrap input::placeholder { color: var(--text-muted); }
-
+  .search-wrap::before {
+    content: '';
+    position: absolute; left: 12px; top: 50%; transform: translateY(-50%);
+    width: 14px; height: 14px;
+    background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='%2352525b' stroke-width='2'%3E%3Ccircle cx='11' cy='11' r='8'/%3E%3Cpath d='m21 21-4.3-4.3'/%3E%3C/svg%3E") center/contain no-repeat;
+  }
   .dropdown {
-    position: absolute; top: 100%; left: 0; right: 0; z-index: 100;
-    background: var(--card); border: 1px solid var(--border-hover);
+    position: absolute; top: calc(100% + 6px); left: 0; right: 0; z-index: 100;
+    background: var(--bg-elevated); border: 1px solid var(--border-hover);
     border-radius: var(--radius-sm);
-    max-height: 340px; overflow-y: auto; display: none; margin-top: 6px;
+    max-height: 360px; overflow-y: auto; display: none;
     box-shadow: var(--shadow-lg);
-    scrollbar-width: thin; scrollbar-color: var(--border) transparent;
+    scrollbar-width: thin; scrollbar-color: var(--bg-subtle) transparent;
   }
   .dropdown.show { display: block; }
   .dropdown-item {
-    padding: 10px 14px; cursor: pointer; font-size: 14px;
+    padding: 10px 14px; cursor: pointer; font-size: 13px;
     display: flex; justify-content: space-between; align-items: center;
-    transition: all 0.12s; border-bottom: 1px solid rgba(255,255,255,0.03);
+    transition: background var(--transition);
+    border-bottom: 1px solid rgba(255,255,255,0.02);
   }
   .dropdown-item:last-child { border-bottom: none; }
-  .dropdown-item:hover { background: var(--accent-dim); }
+  .dropdown-item:hover { background: rgba(255,255,255,0.04); }
   .dropdown-item.active { background: var(--accent); color: #fff; }
-  .dropdown-item .meta { font-size: 11px; color: var(--text-dim); font-variant-numeric: tabular-nums; }
-  .dropdown-item:hover .meta { color: var(--accent); }
+  .dropdown-item .meta {
+    font-size: 11px; color: var(--text-muted);
+    font-family: var(--font-mono); font-variant-numeric: tabular-nums;
+  }
+  .dropdown-item:hover .meta { color: var(--text-secondary); }
   .dropdown-item.active .meta { color: rgba(255,255,255,0.7); }
 
   input[type="date"] {
-    background: var(--bg-subtle); border: 1px solid var(--border);
+    background: var(--bg-elevated); border: 1px solid var(--border);
     border-radius: var(--radius-sm); color: var(--text);
-    padding: 10px 14px; font-size: 14px; outline: none; transition: all 0.2s;
+    padding: 8px 12px; font-size: 13px; outline: none;
+    transition: all var(--transition); font-family: var(--font-sans);
   }
   input[type="date"]:focus {
     border-color: var(--accent);
     box-shadow: 0 0 0 3px var(--accent-dim);
   }
-  ::-webkit-calendar-picker-indicator { filter: invert(0.6); cursor: pointer; }
+  ::-webkit-calendar-picker-indicator { filter: invert(0.5); cursor: pointer; }
 
-  /* ── Button Group (pills) ── */
-  .btn-group {
-    display: flex; align-items: center; gap: 0;
-    background: var(--bg-subtle); border: 1px solid var(--border);
-    border-radius: var(--radius-sm); overflow: hidden;
+  /* ===== PILL BUTTONS ===== */
+  .pill-group {
+    display: flex; align-items: center; gap: 2px;
+    background: var(--bg-elevated); border: 1px solid var(--border);
+    border-radius: var(--radius-sm); padding: 3px;
   }
   .preset-btn {
-    background: transparent; border: none; border-right: 1px solid var(--border);
-    color: var(--text-dim); padding: 10px 14px; font-size: 13px; cursor: pointer;
-    transition: all 0.15s; white-space: nowrap; font-weight: 500;
+    background: transparent; border: none;
+    color: var(--text-muted); padding: 6px 12px; font-size: 12px;
+    cursor: pointer; transition: all var(--transition);
+    white-space: nowrap; font-weight: 500; border-radius: var(--radius-xs);
+    font-family: var(--font-sans);
   }
-  .preset-btn:last-child { border-right: none; }
-  .preset-btn:hover { background: rgba(255,255,255,0.04); color: var(--text); }
+  .preset-btn:hover { color: var(--text-secondary); }
   .preset-btn.active {
-    background: var(--accent); color: #fff;
-    box-shadow: inset 0 1px 0 rgba(255,255,255,0.1);
+    background: rgba(255,255,255,0.08); color: var(--text);
+    box-shadow: var(--shadow-sm);
+  }
+
+  /* ===== ACTION BUTTONS ===== */
+  .btn {
+    display: inline-flex; align-items: center; gap: 6px;
+    padding: 8px 16px; border-radius: var(--radius-sm);
+    font-size: 13px; font-weight: 600; cursor: pointer;
+    transition: all var(--transition); border: 1px solid transparent;
+    font-family: var(--font-sans); white-space: nowrap;
+  }
+  .btn-primary {
+    background: var(--accent); color: #fff; border-color: var(--accent);
+  }
+  .btn-primary:hover {
+    background: var(--accent-hover); transform: translateY(-1px);
+    box-shadow: 0 4px 16px rgba(59,130,246,0.25);
+  }
+  .btn-primary:active { transform: translateY(0); }
+  .btn-primary.loading { opacity: 0.5; pointer-events: none; }
+
+  .btn-outline {
+    background: transparent; color: var(--amber);
+    border-color: rgba(245,158,11,0.3);
+  }
+  .btn-outline:hover {
+    background: var(--amber-dim); border-color: var(--amber);
+    transform: translateY(-1px);
+  }
+  .btn-outline:active { transform: translateY(0); }
+  .btn-outline.active {
+    background: var(--amber); color: #000; border-color: var(--amber);
   }
 
   .forecast-btn {
-    background: transparent; border: 1px solid var(--purple);
-    border-radius: var(--radius-sm); color: var(--purple);
-    padding: 10px 18px; font-size: 13px; font-weight: 600;
-    cursor: pointer; transition: all 0.2s; white-space: nowrap;
-    letter-spacing: 0.3px;
+    background: transparent; color: var(--violet);
+    border: 1px solid rgba(139,92,246,0.3);
+    padding: 8px 16px; border-radius: var(--radius-sm);
+    font-size: 13px; font-weight: 600; cursor: pointer;
+    transition: all var(--transition); font-family: var(--font-sans);
+    white-space: nowrap;
   }
-  .forecast-btn:hover { background: var(--purple); color: #fff; box-shadow: 0 0 16px rgba(167,139,250,0.3); }
-  .forecast-btn.active { background: var(--purple); color: #fff; box-shadow: 0 0 16px rgba(167,139,250,0.3); }
+  .forecast-btn:hover {
+    background: var(--violet-dim); border-color: var(--violet);
+    transform: translateY(-1px);
+  }
+  .forecast-btn:active { transform: translateY(0); }
+  .forecast-btn.active {
+    background: var(--violet); color: #fff; border-color: var(--violet);
+  }
   .forecast-btn.loading { opacity: 0.5; pointer-events: none; }
 
-  .research-btn { border-color: #f59e0b; color: #f59e0b; }
-  .research-btn:hover, .research-btn.active { background: #f59e0b; color: #fff; box-shadow: 0 0 16px rgba(245,158,11,0.3); }
+  .research-btn {
+    background: transparent; color: var(--amber);
+    border: 1px solid rgba(245,158,11,0.3);
+    padding: 8px 16px; border-radius: var(--radius-sm);
+    font-size: 13px; font-weight: 600; cursor: pointer;
+    transition: all var(--transition); font-family: var(--font-sans);
+    white-space: nowrap;
+  }
+  .research-btn:hover {
+    background: var(--amber-dim); border-color: var(--amber);
+    transform: translateY(-1px);
+  }
+  .research-btn:active { transform: translateY(0); }
+  .research-btn.active {
+    background: var(--amber); color: #000; border-color: var(--amber);
+  }
 
-  /* ── Research Panel ── */
-  .research-panel {
+  /* ===== CHART SECTION ===== */
+  .chart-section {
+    margin-top: 8px;
     background: var(--card); border: 1px solid var(--border);
-    border-radius: var(--radius); margin-top: 20px;
-    box-shadow: var(--shadow-md); overflow: hidden;
+    border-radius: var(--radius); overflow: hidden;
   }
-  .research-header {
-    display: flex; justify-content: space-between; align-items: center;
-    padding: 20px 24px; border-bottom: 1px solid var(--border);
-    background: linear-gradient(135deg, rgba(245,158,11,0.06), rgba(239,68,68,0.04));
-  }
-  .research-title { display: flex; align-items: center; gap: 10px; }
-  .research-title h2 { font-size: 16px; font-weight: 700; margin: 0; color: var(--text); }
-  .research-icon { font-size: 20px; }
-  .research-badge {
-    font-size: 11px; background: rgba(245,158,11,0.15); color: #f59e0b;
-    padding: 3px 8px; border-radius: 10px; font-weight: 600;
-  }
-  .research-close {
-    background: none; border: none; color: var(--text-dim); font-size: 18px;
-    cursor: pointer; padding: 4px 8px; border-radius: 4px;
-  }
-  .research-close:hover { background: rgba(255,255,255,0.05); color: var(--text); }
-  .research-body { padding: 24px; }
-  .research-loading {
-    text-align: center; padding: 40px; color: var(--text-dim); font-size: 14px;
-  }
-
-  /* 麦肯锡风格研报 */
-  .mckinsey-report { font-size: 14px; line-height: 1.7; }
-  .mckinsey-report .report-executive {
-    background: linear-gradient(135deg, rgba(245,158,11,0.08), rgba(59,130,246,0.05));
-    border-left: 4px solid #f59e0b; padding: 16px 20px; border-radius: 0 8px 8px 0;
-    margin-bottom: 24px;
-  }
-  .mckinsey-report .report-executive h3 {
-    font-size: 13px; text-transform: uppercase; letter-spacing: 1px;
-    color: #f59e0b; margin: 0 0 8px 0; font-weight: 700;
-  }
-  .mckinsey-report .report-executive p { margin: 0; color: var(--text); font-size: 15px; font-weight: 500; }
-
-  .mckinsey-report .report-direction {
-    display: flex; align-items: center; gap: 16px; margin-bottom: 24px;
-    padding: 16px; background: rgba(255,255,255,0.02); border-radius: 8px; border: 1px solid var(--border);
-  }
-  .mckinsey-report .direction-arrow {
-    font-size: 36px; width: 60px; height: 60px; display: flex; align-items: center;
-    justify-content: center; border-radius: 12px; font-weight: 800;
-  }
-  .mckinsey-report .direction-arrow.up { background: rgba(34,197,94,0.12); color: #22c55e; }
-  .mckinsey-report .direction-arrow.down { background: rgba(239,68,68,0.12); color: #ef4444; }
-  .mckinsey-report .direction-arrow.neutral { background: rgba(156,163,175,0.12); color: #9ca3af; }
-  .mckinsey-report .direction-meta { flex: 1; }
-  .mckinsey-report .direction-label { font-size: 12px; color: var(--text-dim); margin-bottom: 2px; }
-  .mckinsey-report .direction-value { font-size: 18px; font-weight: 700; color: var(--text); }
-  .mckinsey-report .direction-conf { font-size: 12px; color: var(--text-dim); }
-
-  .mckinsey-report .report-price-range {
-    display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 24px;
-  }
-  .mckinsey-report .range-card {
-    padding: 14px 16px; background: rgba(255,255,255,0.02);
-    border: 1px solid var(--border); border-radius: 8px;
-  }
-  .mckinsey-report .range-card .range-label { font-size: 11px; color: var(--text-dim); margin-bottom: 4px; text-transform: uppercase; letter-spacing: 0.5px; }
-  .mckinsey-report .range-card .range-value { font-size: 16px; font-weight: 700; color: var(--text); }
-
-  .mckinsey-report .report-section { margin-bottom: 20px; }
-  .mckinsey-report .report-section h4 {
-    font-size: 12px; text-transform: uppercase; letter-spacing: 1px;
-    color: var(--text-dim); margin: 0 0 12px 0; padding-bottom: 8px;
-    border-bottom: 1px solid var(--border); font-weight: 600;
-  }
-  .mckinsey-report .factor-item {
-    display: flex; align-items: center; gap: 10px; padding: 8px 0;
-    border-bottom: 1px solid rgba(255,255,255,0.03);
-  }
-  .mckinsey-report .factor-dot {
-    width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0;
-  }
-  .mckinsey-report .factor-dot.positive { background: #22c55e; }
-  .mckinsey-report .factor-dot.negative { background: #ef4444; }
-  .mckinsey-report .factor-dot.neutral { background: #9ca3af; }
-  .mckinsey-report .factor-text { font-size: 13px; color: var(--text); flex: 1; }
-  .mckinsey-report .factor-weight { font-size: 11px; color: var(--text-dim); background: rgba(255,255,255,0.05); padding: 2px 6px; border-radius: 4px; }
-
-  .mckinsey-report .report-recommendation {
-    background: linear-gradient(135deg, rgba(59,130,246,0.08), rgba(147,51,234,0.05));
-    border: 1px solid rgba(59,130,246,0.2); border-radius: 8px;
-    padding: 16px 20px; margin-top: 20px;
-  }
-  .mckinsey-report .report-recommendation h4 { border: none; padding: 0; margin-bottom: 8px; color: #60a5fa; }
-  .mckinsey-report .report-recommendation p { margin: 0; color: var(--text); font-weight: 500; }
-
-  .mckinsey-report .report-reasoning {
-    font-size: 13px; color: var(--text-dim); line-height: 1.8;
-    padding: 12px 16px; background: rgba(255,255,255,0.02); border-radius: 6px;
-    border-left: 3px solid rgba(255,255,255,0.1);
-  }
-  .mckinsey-report .report-risks { list-style: none; padding: 0; margin: 0; }
-  .mckinsey-report .report-risks li { padding: 6px 0; font-size: 13px; color: var(--text); }
-  .mckinsey-report .report-risks li::before { content: "⚠️ "; }
-  .mckinsey-report .report-opps { list-style: none; padding: 0; margin: 8px 0 0; }
-  .mckinsey-report .report-opps li { padding: 6px 0; font-size: 13px; color: var(--text); }
-  .mckinsey-report .report-opps li::before { content: "🟢 "; }
-
-  /* Scenario Analysis */
-  .mckinsey-report .scenario-grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; }
-  .mckinsey-report .scenario-card {
-    padding: 12px 14px; background: rgba(255,255,255,0.02);
-    border-radius: 6px; border: 1px solid var(--border);
-  }
-  .mckinsey-report .scenario-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px; }
-  .mckinsey-report .scenario-prob { font-size: 11px; color: var(--text-dim); background: rgba(255,255,255,0.05); padding: 2px 6px; border-radius: 4px; }
-  .mckinsey-report .scenario-condition { font-size: 12px; color: var(--text-dim); line-height: 1.5; margin-bottom: 8px; }
-  .mckinsey-report .scenario-targets { display: flex; gap: 12px; font-size: 13px; font-weight: 600; color: var(--text); }
-
-  /* Multi-Dimension */
-  .mckinsey-report .dimension-grid { display: flex; flex-direction: column; gap: 8px; }
-  .mckinsey-report .dimension-item {
-    display: flex; align-items: flex-start; gap: 8px; padding: 8px 12px;
-    background: rgba(255,255,255,0.02); border-radius: 6px; border: 1px solid var(--border);
-  }
-  .mckinsey-report .dim-icon { font-size: 14px; flex-shrink: 0; margin-top: 1px; }
-  .mckinsey-report .dim-label { font-size: 12px; color: var(--text-dim); min-width: 48px; flex-shrink: 0; font-weight: 600; }
-  .mckinsey-report .dim-text { font-size: 13px; color: var(--text); line-height: 1.5; }
-
-  /* Contrarian & Signal Conflicts */
-  .mckinsey-report .report-contrarian {
-    font-size: 13px; color: #f59e0b; line-height: 1.7; padding: 12px 16px;
-    background: rgba(245,158,11,0.06); border-radius: 6px; border: 1px solid rgba(245,158,11,0.15);
-    font-style: italic;
-  }
-  .mckinsey-report .report-insight {
-    font-size: 13px; color: var(--text); line-height: 1.7; padding: 12px 16px;
-    background: rgba(96,165,250,0.06); border-radius: 6px; border: 1px solid rgba(96,165,250,0.15);
-  }
-
-  /* Self Review */
-  .mckinsey-report .report-self-review {
-    font-size: 12px; color: var(--text-dim); line-height: 1.6; padding: 10px 14px;
-    background: rgba(255,255,255,0.02); border-radius: 6px; border: 1px dashed var(--border);
-    font-style: italic;
-  }
-
-  /* Position sizing */
-  .mckinsey-report .position-sizing { margin-top: 8px; font-size: 13px; color: var(--text-dim); font-style: italic; }
-
-  /* Data quality badges */
-  .mckinsey-report .factor-quality {
-    font-size: 10px; width: 16px; height: 16px; border-radius: 50%;
-    display: flex; align-items: center; justify-content: center; font-weight: 700; flex-shrink: 0;
-  }
-  .mckinsey-report .factor-quality.high { background: rgba(34,197,94,0.15); color: #22c55e; }
-  .mckinsey-report .factor-quality.medium { background: rgba(245,158,11,0.15); color: #f59e0b; }
-  .mckinsey-report .factor-quality.low { background: rgba(239,68,68,0.15); color: #ef4444; }
-
-  @media (max-width: 600px) {
-    .mckinsey-report .scenario-grid { grid-template-columns: 1fr; }
-  }
-
-  /* ── Chart Card ── */
   .chart-card {
-    background: var(--card); border: 1px solid var(--border);
-    border-radius: var(--radius); padding: 24px;
-    position: relative; box-shadow: var(--shadow-md);
+    background: transparent; border: none;
+    border-radius: 0; padding: 20px 24px 16px;
+    position: relative;
   }
   .chart-header {
     display: flex; justify-content: space-between; align-items: center;
-    margin-bottom: 16px; padding-bottom: 16px;
-    border-bottom: 1px solid var(--border);
+    margin-bottom: 12px;
   }
-  .chart-title {
-    display: flex; align-items: center; gap: 12px;
-  }
+  .chart-title { display: flex; align-items: center; gap: 10px; }
   .chart-title h2 {
-    font-size: 18px; font-weight: 600; color: var(--text);
+    font-size: 15px; font-weight: 600; color: var(--text);
+    letter-spacing: -0.01em;
   }
   .chart-title .badge {
-    display: inline-flex; align-items: center; gap: 4px;
-    background: var(--accent-dim); color: var(--accent); border: 1px solid rgba(79,143,255,0.2);
-    border-radius: 20px; padding: 3px 10px; font-size: 11px; font-weight: 500;
+    display: inline-flex; align-items: center;
+    background: var(--accent-dim); color: var(--accent);
+    border-radius: 20px; padding: 3px 8px;
+    font-size: 11px; font-weight: 500; font-family: var(--font-mono);
   }
-  .chart-meta {
-    font-size: 12px; color: var(--text-dim);
-  }
+  .chart-meta { font-size: 11px; color: var(--text-muted); font-family: var(--font-mono); }
 
-  #chart { width: 100%; height: 520px; }
+  #chart { width: 100%; height: 480px; }
 
   .loading-overlay {
     position: absolute; inset: 0; display: none;
     align-items: center; justify-content: center;
-    background: rgba(10,15,26,0.85); backdrop-filter: blur(4px);
+    background: rgba(9,9,11,0.9); backdrop-filter: blur(8px);
     border-radius: var(--radius); z-index: 10;
-    flex-direction: column; gap: 14px;
+    flex-direction: column; gap: 12px;
   }
   .loading-overlay.show { display: flex; }
   .spinner {
-    width: 40px; height: 40px; border: 3px solid var(--border);
+    width: 32px; height: 32px; border: 2px solid var(--border);
     border-top-color: var(--accent); border-radius: 50%;
-    animation: spin 0.8s linear infinite;
+    animation: spin 0.7s linear infinite;
   }
-  .loading-overlay .hint { color: var(--text-dim); font-size: 13px; }
+  .loading-overlay .hint { color: var(--text-muted); font-size: 12px; }
   @keyframes spin { to { transform: rotate(360deg); } }
 
-  /* ── Stats Grid ── */
+  /* ===== STATS ===== */
   .stats {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(155px, 1fr));
-    gap: 14px; margin-top: 20px;
+    grid-template-columns: repeat(auto-fit, minmax(145px, 1fr));
+    gap: 1px; margin-top: 0;
+    background: var(--border);
+    border-top: 1px solid var(--border);
   }
   .stat-card {
-    background: var(--card); border: 1px solid var(--border);
-    border-radius: var(--radius-sm); padding: 18px 20px;
-    transition: all 0.2s; position: relative; overflow: hidden;
+    background: var(--card); padding: 16px 20px;
+    transition: background var(--transition);
   }
-  .stat-card::before {
-    content: ''; position: absolute; top: 0; left: 0; right: 0; height: 2px;
-    background: var(--border); transition: background 0.2s;
-  }
-  .stat-card:hover {
-    border-color: var(--border-hover);
-    transform: translateY(-1px);
-    box-shadow: var(--shadow-sm);
-  }
+  .stat-card:hover { background: var(--card-hover); }
   .stat-card .label {
-    font-size: 11px; color: var(--text-dim); margin-bottom: 8px;
-    font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px;
+    font-size: 11px; color: var(--text-muted); margin-bottom: 6px;
+    font-weight: 500; text-transform: uppercase; letter-spacing: 0.04em;
+    font-family: var(--font-mono);
   }
-  .stat-card .value { font-size: 20px; font-weight: 700; font-variant-numeric: tabular-nums; }
-  .stat-card .value.green { color: var(--green); }
+  .stat-card .value {
+    font-size: 18px; font-weight: 700;
+    font-variant-numeric: tabular-nums; font-family: var(--font-mono);
+    letter-spacing: -0.02em;
+  }
+  .stat-card .value.green { color: var(--emerald); }
   .stat-card .value.red { color: var(--red); }
   .stat-card .value.blue { color: var(--accent); }
-  .stat-card .value.orange { color: var(--orange); }
-  .stat-card .value.purple { color: var(--purple); }
-  .stat-card .sub { font-size: 11px; color: var(--text-dim); margin-top: 4px; }
+  .stat-card .value.orange { color: var(--amber); }
+  .stat-card .value.purple { color: var(--violet); }
+  .stat-card .sub { font-size: 11px; color: var(--text-muted); margin-top: 3px; font-family: var(--font-mono); }
 
-  /* 颜色顶线 */
-  .stat-card.c-blue::before { background: var(--accent); }
-  .stat-card.c-red::before { background: var(--red); }
-  .stat-card.c-green::before { background: var(--green); }
-  .stat-card.c-orange::before { background: var(--orange); }
-  .stat-card.c-purple::before { background: var(--purple); }
+  /* Remove old color top-line */
+  .stat-card.c-blue::before,
+  .stat-card.c-red::before,
+  .stat-card.c-green::before,
+  .stat-card.c-orange::before,
+  .stat-card.c-purple::before { display: none; }
 
   .empty-state {
     display: flex; flex-direction: column; align-items: center; justify-content: center;
-    height: 520px; color: var(--text-muted);
+    height: 480px; color: var(--text-muted);
   }
-  .empty-state svg { width: 56px; height: 56px; margin-bottom: 16px; opacity: 0.3; }
-  .empty-state p { font-size: 14px; }
+  .empty-state svg { width: 48px; height: 48px; margin-bottom: 12px; opacity: 0.25; }
+  .empty-state p { font-size: 13px; }
 
   .method-badge {
-    display: inline-block; background: var(--purple-dim); color: var(--purple);
-    border: 1px solid rgba(167,139,250,0.25); border-radius: 6px;
-    padding: 4px 10px; font-size: 11px; margin-top: 8px;
+    display: inline-block; background: var(--violet-dim); color: var(--violet);
+    border-radius: var(--radius-xs); padding: 3px 8px;
+    font-size: 10px; margin-top: 6px; font-family: var(--font-mono);
   }
 
-  /* ── Nav link ── */
-  .nav-link {
-    position: fixed; bottom: 24px; right: 24px; z-index: 50;
+  /* ===== RESEARCH PANEL ===== */
+  .research-panel {
     background: var(--card); border: 1px solid var(--border);
-    border-radius: 28px; padding: 10px 20px; font-size: 13px;
-    color: var(--text-dim); text-decoration: none; font-weight: 500;
-    transition: all 0.2s; box-shadow: var(--shadow-md);
+    border-radius: var(--radius); margin-top: 16px;
+    overflow: hidden;
   }
-  .nav-link:hover { border-color: var(--accent); color: var(--accent); }
+  .research-header {
+    display: flex; justify-content: space-between; align-items: center;
+    padding: 16px 24px;
+    border-bottom: 1px solid var(--border);
+  }
+  .research-title { display: flex; align-items: center; gap: 10px; }
+  .research-title h2 { font-size: 14px; font-weight: 600; margin: 0; color: var(--text); }
+  .research-icon { font-size: 16px; }
+  .research-badge {
+    font-size: 11px; background: var(--amber-dim); color: var(--amber);
+    padding: 2px 8px; border-radius: 10px; font-weight: 600;
+    font-family: var(--font-mono);
+  }
+  .research-close {
+    background: none; border: none; color: var(--text-muted); font-size: 16px;
+    cursor: pointer; padding: 4px 8px; border-radius: var(--radius-xs);
+    transition: all var(--transition);
+  }
+  .research-close:hover { background: rgba(255,255,255,0.05); color: var(--text); }
+  .research-body { padding: 24px; }
+  .research-loading {
+    text-align: center; padding: 40px; color: var(--text-muted); font-size: 13px;
+  }
 
-  /* ── Scrollbar ── */
-  ::-webkit-scrollbar { width: 6px; }
+  /* ===== McKINSEY REPORT ===== */
+  .mckinsey-report { font-size: 13px; line-height: 1.7; }
+  .mckinsey-report .report-executive {
+    background: linear-gradient(135deg, rgba(245,158,11,0.05), rgba(59,130,246,0.03));
+    border-left: 3px solid var(--amber); padding: 16px 20px;
+    border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
+    margin-bottom: 24px;
+  }
+  .mckinsey-report .report-executive h3 {
+    font-size: 10px; text-transform: uppercase; letter-spacing: 0.1em;
+    color: var(--amber); margin: 0 0 8px 0; font-weight: 700;
+    font-family: var(--font-mono);
+  }
+  .mckinsey-report .report-executive p {
+    margin: 0; color: var(--text); font-size: 14px; font-weight: 500; line-height: 1.6;
+  }
+
+  .mckinsey-report .report-direction {
+    display: flex; align-items: center; gap: 16px; margin-bottom: 24px;
+    padding: 14px 16px; background: rgba(255,255,255,0.02);
+    border-radius: var(--radius-sm); border: 1px solid var(--border);
+  }
+  .mckinsey-report .direction-arrow {
+    font-size: 28px; width: 52px; height: 52px; display: flex; align-items: center;
+    justify-content: center; border-radius: 10px; font-weight: 800;
+  }
+  .mckinsey-report .direction-arrow.up { background: var(--emerald-dim); color: var(--emerald); }
+  .mckinsey-report .direction-arrow.down { background: var(--red-dim); color: var(--red); }
+  .mckinsey-report .direction-arrow.neutral { background: rgba(255,255,255,0.05); color: var(--text-muted); }
+  .mckinsey-report .direction-meta { flex: 1; }
+  .mckinsey-report .direction-label { font-size: 11px; color: var(--text-muted); margin-bottom: 2px; font-family: var(--font-mono); text-transform: uppercase; letter-spacing: 0.04em; }
+  .mckinsey-report .direction-value { font-size: 16px; font-weight: 700; color: var(--text); }
+  .mckinsey-report .direction-conf { font-size: 11px; color: var(--text-muted); font-family: var(--font-mono); }
+
+  .mckinsey-report .report-price-range {
+    display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 24px;
+  }
+  .mckinsey-report .range-card {
+    padding: 12px 16px; background: rgba(255,255,255,0.02);
+    border: 1px solid var(--border); border-radius: var(--radius-sm);
+  }
+  .mckinsey-report .range-card .range-label { font-size: 10px; color: var(--text-muted); margin-bottom: 4px; text-transform: uppercase; letter-spacing: 0.04em; font-family: var(--font-mono); }
+  .mckinsey-report .range-card .range-value { font-size: 15px; font-weight: 700; color: var(--text); font-family: var(--font-mono); }
+
+  .mckinsey-report .report-section { margin-bottom: 20px; }
+  .mckinsey-report .report-section h4 {
+    font-size: 10px; text-transform: uppercase; letter-spacing: 0.08em;
+    color: var(--text-muted); margin: 0 0 10px 0; padding-bottom: 8px;
+    border-bottom: 1px solid var(--border); font-weight: 600;
+    font-family: var(--font-mono);
+  }
+  .mckinsey-report .factor-item {
+    display: flex; align-items: center; gap: 10px; padding: 7px 0;
+    border-bottom: 1px solid rgba(255,255,255,0.02);
+  }
+  .mckinsey-report .factor-dot { width: 6px; height: 6px; border-radius: 50%; flex-shrink: 0; }
+  .mckinsey-report .factor-dot.positive { background: var(--emerald); }
+  .mckinsey-report .factor-dot.negative { background: var(--red); }
+  .mckinsey-report .factor-dot.neutral { background: var(--text-muted); }
+  .mckinsey-report .factor-text { font-size: 13px; color: var(--text); flex: 1; }
+  .mckinsey-report .factor-weight { font-size: 11px; color: var(--text-muted); background: rgba(255,255,255,0.04); padding: 2px 6px; border-radius: 4px; font-family: var(--font-mono); }
+
+  .mckinsey-report .report-recommendation {
+    background: linear-gradient(135deg, rgba(59,130,246,0.06), rgba(139,92,246,0.04));
+    border: 1px solid rgba(59,130,246,0.15); border-radius: var(--radius-sm);
+    padding: 14px 18px; margin-top: 20px;
+  }
+  .mckinsey-report .report-recommendation h4 { border: none; padding: 0; margin-bottom: 6px; color: var(--accent); }
+  .mckinsey-report .report-recommendation p { margin: 0; color: var(--text); font-weight: 500; }
+
+  .mckinsey-report .report-reasoning {
+    font-size: 13px; color: var(--text-secondary); line-height: 1.8;
+    padding: 12px 14px; background: rgba(255,255,255,0.02); border-radius: var(--radius-xs);
+    border-left: 2px solid var(--border);
+  }
+  .mckinsey-report .report-risks { list-style: none; padding: 0; margin: 0; }
+  .mckinsey-report .report-risks li { padding: 5px 0; font-size: 13px; color: var(--text); display: flex; align-items: flex-start; gap: 6px; }
+  .mckinsey-report .report-risks li::before { content: "\25CF"; color: var(--red); font-size: 8px; margin-top: 5px; flex-shrink: 0; }
+  .mckinsey-report .report-opps { list-style: none; padding: 0; margin: 8px 0 0; }
+  .mckinsey-report .report-opps li { padding: 5px 0; font-size: 13px; color: var(--text); display: flex; align-items: flex-start; gap: 6px; }
+  .mckinsey-report .report-opps li::before { content: "\25CF"; color: var(--emerald); font-size: 8px; margin-top: 5px; flex-shrink: 0; }
+
+  /* Scenario Analysis */
+  .mckinsey-report .scenario-grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; }
+  .mckinsey-report .scenario-card {
+    padding: 12px 14px; background: rgba(255,255,255,0.02);
+    border-radius: var(--radius-xs); border: 1px solid var(--border);
+  }
+  .mckinsey-report .scenario-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px; }
+  .mckinsey-report .scenario-prob { font-size: 10px; color: var(--text-muted); background: rgba(255,255,255,0.04); padding: 2px 6px; border-radius: 4px; font-family: var(--font-mono); }
+  .mckinsey-report .scenario-condition { font-size: 12px; color: var(--text-muted); line-height: 1.4; margin-bottom: 8px; }
+  .mckinsey-report .scenario-targets { display: flex; gap: 10px; font-size: 12px; font-weight: 600; color: var(--text); font-family: var(--font-mono); }
+
+  /* Multi-Dimension */
+  .mckinsey-report .dimension-grid { display: flex; flex-direction: column; gap: 6px; }
+  .mckinsey-report .dimension-item {
+    display: flex; align-items: flex-start; gap: 8px; padding: 8px 12px;
+    background: rgba(255,255,255,0.02); border-radius: var(--radius-xs); border: 1px solid var(--border);
+  }
+  .mckinsey-report .dim-icon { font-size: 13px; flex-shrink: 0; margin-top: 1px; }
+  .mckinsey-report .dim-label { font-size: 11px; color: var(--text-muted); min-width: 48px; flex-shrink: 0; font-weight: 600; font-family: var(--font-mono); }
+  .mckinsey-report .dim-text { font-size: 12px; color: var(--text-secondary); line-height: 1.5; }
+
+  /* Contrarian & Signal Conflicts */
+  .mckinsey-report .report-contrarian {
+    font-size: 13px; color: var(--amber); line-height: 1.7; padding: 12px 14px;
+    background: rgba(245,158,11,0.04); border-radius: var(--radius-xs);
+    border: 1px solid rgba(245,158,11,0.1);
+  }
+  .mckinsey-report .report-insight {
+    font-size: 13px; color: var(--text-secondary); line-height: 1.7; padding: 12px 14px;
+    background: rgba(59,130,246,0.04); border-radius: var(--radius-xs);
+    border: 1px solid rgba(59,130,246,0.1);
+  }
+
+  .mckinsey-report .report-self-review {
+    font-size: 12px; color: var(--text-muted); line-height: 1.6; padding: 10px 14px;
+    background: rgba(255,255,255,0.02); border-radius: var(--radius-xs);
+    border: 1px dashed var(--border);
+  }
+  .mckinsey-report .position-sizing { margin-top: 6px; font-size: 12px; color: var(--text-muted); font-family: var(--font-mono); }
+  .mckinsey-report .factor-quality {
+    font-size: 9px; width: 14px; height: 14px; border-radius: 50%;
+    display: flex; align-items: center; justify-content: center; font-weight: 700; flex-shrink: 0;
+  }
+  .mckinsey-report .factor-quality.high { background: var(--emerald-dim); color: var(--emerald); }
+  .mckinsey-report .factor-quality.medium { background: var(--amber-dim); color: var(--amber); }
+  .mckinsey-report .factor-quality.low { background: var(--red-dim); color: var(--red); }
+
+  /* ===== ORIGIN MAP ===== */
+  .origin-section {
+    margin-top: 16px;
+    background: var(--card); border: 1px solid var(--border);
+    border-radius: var(--radius); overflow: hidden;
+  }
+
+  /* ===== FOOTER LINK ===== */
+  .nav-link {
+    position: fixed; bottom: 20px; right: 20px; z-index: 50;
+    background: var(--bg-elevated); border: 1px solid var(--border);
+    border-radius: 24px; padding: 8px 16px; font-size: 12px;
+    color: var(--text-secondary); text-decoration: none; font-weight: 500;
+    transition: all var(--transition); box-shadow: var(--shadow-md);
+  }
+  .nav-link:hover { border-color: var(--accent); color: var(--accent); transform: translateY(-1px); }
+
+  /* ===== SCROLLBAR ===== */
+  ::-webkit-scrollbar { width: 5px; }
   ::-webkit-scrollbar-track { background: transparent; }
-  ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
-  ::-webkit-scrollbar-thumb:hover { background: var(--border-hover); }
+  ::-webkit-scrollbar-thumb { background: var(--bg-subtle); border-radius: 3px; }
+  ::-webkit-scrollbar-thumb:hover { background: var(--text-muted); }
 
-  /* ── Responsive ── */
+  /* ===== RESPONSIVE ===== */
   @media (max-width: 768px) {
-    .container { padding: 16px; }
-    .controls-row { gap: 12px; }
+    .app-layout { padding: 0 16px; }
+    .hero-strip { grid-template-columns: 1fr; gap: 16px; }
+    .hero-left h2 { font-size: 22px; }
+    .toolbar { gap: 8px; }
+    .search-wrap input { width: 100%; }
+    .search-wrap input:focus { width: 100%; }
+    #chart { height: 360px; }
     .stats { grid-template-columns: repeat(2, 1fr); }
-    #chart { height: 400px; }
-    .chart-header { flex-direction: column; align-items: flex-start; gap: 8px; }
+    .chart-header { flex-direction: column; align-items: flex-start; gap: 6px; }
+    .mckinsey-report .scenario-grid { grid-template-columns: 1fr; }
+    .mckinsey-report .report-price-range { grid-template-columns: 1fr; }
+    .app-header { flex-direction: column; align-items: flex-start; gap: 12px; }
   }
+
+  /* ===== ANIMATIONS ===== */
+  @keyframes fadeUp {
+    from { opacity: 0; transform: translateY(8px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+  .chart-section { animation: fadeUp 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards; }
+  .research-panel { animation: fadeUp 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards; }
+  .origin-section { animation: fadeUp 0.4s cubic-bezier(0.16, 1, 0.3, 1) 0.1s forwards; opacity: 0; animation-fill-mode: forwards; }
 </style>
 </head>
 <body>
-<div class="container">
-  <header>
-    <h1>药材价格趋势</h1>
-    <p>覆盖 303 个品种 · 13 年历史数据 · 指数反推 + 实际价格 + AI 预测</p>
+<div class="app-layout">
+  <header class="app-header">
+    <div class="app-brand">
+      <div class="app-brand-icon"><img src="./favicon.png" alt=""></div>
+      <div class="app-brand-text">
+        <h1>药材价格趋势</h1>
+        <p>303 varieties / 13yr data / AI forecast</p>
+      </div>
+    </div>
+    <nav class="app-nav">
+      <a href="./" class="active">行情</a>
+      <a href="./tcm">方剂分析</a>
+    </nav>
   </header>
 
-  <div class="controls">
-    <div class="controls-row">
-      <div class="field grow">
-        <label>品种</label>
-        <div class="search-wrap">
-          <input type="text" id="searchInput" placeholder="搜索品种名称…" autocomplete="off">
-          <div class="dropdown" id="dropdown"></div>
-        </div>
+  <div class="toolbar">
+    <div class="toolbar-group">
+      <div class="search-wrap">
+        <input type="text" id="searchInput" placeholder="搜索品种..." autocomplete="off">
+        <div class="dropdown" id="dropdown"></div>
       </div>
-      <div class="field">
-        <label>开始日期</label>
-        <input type="date" id="startDate">
+    </div>
+    <div class="toolbar-divider"></div>
+    <div class="toolbar-group">
+      <input type="date" id="startDate">
+      <span style="color:var(--text-muted);font-size:12px">-</span>
+      <input type="date" id="endDate">
+    </div>
+    <div class="toolbar-divider"></div>
+    <div class="toolbar-group">
+      <div class="pill-group">
+        <button class="preset-btn" data-years="1">1Y</button>
+        <button class="preset-btn" data-years="3">3Y</button>
+        <button class="preset-btn active" data-years="5">5Y</button>
+        <button class="preset-btn" data-years="10">10Y</button>
+        <button class="preset-btn" data-years="0">ALL</button>
       </div>
-      <div class="field">
-        <label>结束日期</label>
-        <input type="date" id="endDate">
-      </div>
-      <div class="field">
-        <label>时间范围</label>
-        <div class="btn-group">
-          <button class="preset-btn" data-years="1">1年</button>
-          <button class="preset-btn" data-years="3">3年</button>
-          <button class="preset-btn active" data-years="5">5年</button>
-          <button class="preset-btn" data-years="10">10年</button>
-          <button class="preset-btn" data-years="0">全部</button>
-        </div>
-      </div>
-      <div class="field">
-        <label>&nbsp;</label>
-        <button class="forecast-btn" id="forecastBtn" title="预测未来半年价格">AI 预测</button>
-      </div>
-      <div class="field">
-        <label>&nbsp;</label>
-        <button class="forecast-btn research-btn" id="researchBtn" title="LLM 综合研判报告">AI 研判</button>
-      </div>
+    </div>
+    <div class="toolbar-divider"></div>
+    <div class="toolbar-group">
+      <button class="forecast-btn" id="forecastBtn">AI 预测</button>
+      <button class="research-btn" id="researchBtn">AI 研判</button>
     </div>
   </div>
 
@@ -493,69 +616,73 @@
   <div class="research-panel" id="researchPanel" style="display:none">
     <div class="research-header">
       <div class="research-title">
-        <span class="research-icon">📊</span>
+        <span class="research-icon">&#9670;</span>
         <h2 id="researchName">市场研判报告</h2>
         <span class="research-badge" id="researchConfidence">-</span>
       </div>
-      <button class="research-close" id="researchClose">✕</button>
+      <button class="research-close" id="researchClose">&#10005;</button>
     </div>
     <div class="research-body" id="researchBody">
-      <div class="research-loading">正在生成研判报告…</div>
+      <div class="research-loading">正在生成研判报告...</div>
     </div>
   </div>
 
-  <div class="chart-card">
-    <div class="chart-header" id="chartHeader" style="display:none">
-      <div class="chart-title">
-        <h2 id="chartName">-</h2>
-        <span class="badge" id="chartBadge">-</span>
+  <div class="chart-section">
+    <div class="chart-card">
+      <div class="chart-header" id="chartHeader" style="display:none">
+        <div class="chart-title">
+          <h2 id="chartName">-</h2>
+          <span class="badge" id="chartBadge">-</span>
+        </div>
+        <div class="chart-meta" id="chartMeta">-</div>
       </div>
-      <div class="chart-meta" id="chartMeta">-</div>
-    </div>
-    <div class="loading-overlay" id="loading">
-      <div class="spinner"></div>
-      <div class="hint" id="loadingHint">加载中…</div>
-    </div>
-    <div id="chart">
-      <div class="empty-state">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
-          <path d="M3 3v18h18"/><path d="m7 14 4-4 4 4 5-5"/>
-        </svg>
-        <p>选择一个品种开始查看价格趋势</p>
+      <div class="loading-overlay" id="loading">
+        <div class="spinner"></div>
+        <div class="hint" id="loadingHint">Loading...</div>
+      </div>
+      <div id="chart">
+        <div class="empty-state">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+            <path d="M3 3v18h18"/><path d="m7 14 4-4 4 4 5-5"/>
+          </svg>
+          <p>选择一个品种开始查看价格趋势</p>
+        </div>
       </div>
     </div>
-  </div>
 
-  <div class="stats" id="stats" style="display:none">
-    <div class="stat-card c-blue"><div class="label">当前价格</div><div class="value blue" id="sCurrent">-</div></div>
-    <div class="stat-card c-red"><div class="label">最高价格</div><div class="value red" id="sMax">-</div></div>
-    <div class="stat-card c-green"><div class="label">最低价格</div><div class="value green" id="sMin">-</div></div>
-    <div class="stat-card"><div class="label">区间涨跌</div><div class="value" id="sChange">-</div></div>
-    <div class="stat-card"><div class="label">数据天数</div><div class="value" id="sCount">-</div></div>
-    <div class="stat-card c-orange"><div class="label">K值偏差</div><div class="value orange" id="sKcv">-</div></div>
-    <div class="stat-card c-purple" id="sForecastCard" style="display:none">
-      <div class="label">半年预测</div>
-      <div class="value purple" id="sForecast">-</div>
-      <div class="sub" id="sForecastRange">-</div>
+    <div class="stats" id="stats" style="display:none">
+      <div class="stat-card c-blue"><div class="label">CURRENT</div><div class="value blue" id="sCurrent">-</div></div>
+      <div class="stat-card c-red"><div class="label">HIGH</div><div class="value red" id="sMax">-</div></div>
+      <div class="stat-card c-green"><div class="label">LOW</div><div class="value green" id="sMin">-</div></div>
+      <div class="stat-card"><div class="label">CHANGE</div><div class="value" id="sChange">-</div></div>
+      <div class="stat-card"><div class="label">DAYS</div><div class="value" id="sCount">-</div></div>
+      <div class="stat-card c-orange"><div class="label">K-BIAS</div><div class="value orange" id="sKcv">-</div></div>
+      <div class="stat-card c-purple" id="sForecastCard" style="display:none">
+        <div class="label">FORECAST 180D</div>
+        <div class="value purple" id="sForecast">-</div>
+        <div class="sub" id="sForecastRange">-</div>
+      </div>
     </div>
   </div>
 
   <!-- 产地分布地图 -->
-  <div class="chart-card" id="originMapCard" style="display:none; margin-top: 20px;">
-    <div class="chart-header">
-      <div class="chart-title">
-        <h2 id="mapTitle">产地分布</h2>
-        <span class="badge" id="mapBadge">-</span>
+  <div class="origin-section" id="originMapCard" style="display:none">
+    <div class="chart-card">
+      <div class="chart-header">
+        <div class="chart-title">
+          <h2 id="mapTitle">产地分布</h2>
+          <span class="badge" id="mapBadge">-</span>
+        </div>
+        <div class="chart-meta" id="mapMeta">数据来源: 中药材天地网资源地图 + 海关统计</div>
       </div>
-      <div class="chart-meta" id="mapMeta">数据来源：中药材天地网资源地图 + 海关统计</div>
+      <div id="originMap" style="width:100%; height:520px;"></div>
     </div>
-    <div id="originMap" style="width:100%; height:560px;"></div>
   </div>
 </div>
 
-<a href="./tcm" class="nav-link">中医方剂分析 →</a>
 
-<script>
+</content>
+</invoke><script>
 const searchInput = document.getElementById('searchInput');
 const dropdown = document.getElementById('dropdown');
 const startDate = document.getElementById('startDate');

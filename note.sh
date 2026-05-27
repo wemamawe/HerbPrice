@@ -1,0 +1,1 @@
+systemctl restart herbprice && systemctl status herbprice --no-pager

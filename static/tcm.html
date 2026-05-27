@@ -7,196 +7,274 @@
 <link rel="icon" type="image/png" href="./favicon.png">
 <script src="https://cdn.jsdelivr.net/npm/echarts@5/dist/echarts.min.js"></script>
 <style>
+  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap');
+
   :root {
-    --bg: #0f172a; --card: #1e293b; --border: #334155;
-    --text: #e2e8f0; --text-dim: #94a3b8; --accent: #3b82f6;
-    --orange: #f97316; --green: #22c55e; --red: #ef4444;
-    --purple: #a855f7; --amber: #f59e0b; --cyan: #06b6d4;
+    --bg: #09090b;
+    --bg-elevated: #18181b;
+    --bg-subtle: #27272a;
+    --card: #18181b;
+    --card-hover: #1f1f23;
+    --border: rgba(255,255,255,0.06);
+    --border-hover: rgba(255,255,255,0.12);
+    --text: #fafafa;
+    --text-secondary: #a1a1aa;
+    --text-muted: #52525b;
+    --accent: #3b82f6;
+    --accent-dim: rgba(59,130,246,0.1);
+    --emerald: #10b981;
+    --emerald-dim: rgba(16,185,129,0.1);
+    --red: #ef4444;
+    --red-dim: rgba(239,68,68,0.1);
+    --amber: #f59e0b;
+    --amber-dim: rgba(245,158,11,0.1);
+    --violet: #8b5cf6;
+    --cyan: #06b6d4;
+    --cyan-dim: rgba(6,182,212,0.1);
+    --radius: 12px;
+    --radius-sm: 8px;
+    --radius-xs: 6px;
+    --font-sans: 'Inter', -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
+    --font-mono: 'JetBrains Mono', 'SF Mono', 'Fira Code', monospace;
+    --shadow-md: 0 4px 12px rgba(0,0,0,0.5);
+    --shadow-lg: 0 12px 40px rgba(0,0,0,0.6);
+    --transition: 0.2s cubic-bezier(0.16, 1, 0.3, 1);
   }
+
   * { margin: 0; padding: 0; box-sizing: border-box; }
   body {
-    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
-    background: var(--bg); color: var(--text); min-height: 100vh;
+    font-family: var(--font-sans);
+    background: var(--bg); color: var(--text);
+    min-height: 100dvh;
+    -webkit-font-smoothing: antialiased;
   }
-  .container { max-width: 1400px; margin: 0 auto; padding: 20px; }
-  header { text-align: center; padding: 24px 0 16px; }
-  header h1 { font-size: 26px; font-weight: 700; letter-spacing: 1px; }
-  header h1 span { color: var(--amber); }
-  header p { color: var(--text-dim); font-size: 14px; margin-top: 6px; }
-  header .nav { margin-top: 12px; }
-  header .nav a {
-    color: var(--accent); text-decoration: none; font-size: 13px;
-    padding: 4px 12px; border: 1px solid var(--accent); border-radius: 6px;
-    transition: all 0.2s;
-  }
-  header .nav a:hover { background: var(--accent); color: #fff; }
+  .container { max-width: 1440px; margin: 0 auto; padding: 0 32px; }
 
-  /* Overview Cards */
+  /* ===== HEADER ===== */
+  .app-header {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 20px 0;
+    border-bottom: 1px solid var(--border);
+  }
+  .app-brand { display: flex; align-items: center; gap: 12px; }
+  .app-brand-icon { width: 32px; height: 32px; border-radius: 8px; overflow: hidden; }
+  .app-brand-icon img { width: 100%; height: 100%; object-fit: cover; }
+  .app-brand-text h1 { font-size: 16px; font-weight: 700; letter-spacing: -0.02em; }
+  .app-brand-text p { font-size: 11px; color: var(--text-muted); font-family: var(--font-mono); }
+  .app-nav { display: flex; align-items: center; gap: 4px; }
+  .app-nav a {
+    font-size: 13px; color: var(--text-secondary); text-decoration: none;
+    padding: 6px 12px; border-radius: var(--radius-xs);
+    transition: all var(--transition); font-weight: 500;
+  }
+  .app-nav a:hover { color: var(--text); background: rgba(255,255,255,0.04); }
+  .app-nav a.active { color: var(--text); background: rgba(255,255,255,0.06); }
+
+  /* ===== STATS GRID ===== */
   .stats-grid {
-    display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
-    gap: 12px; margin-bottom: 20px;
+    display: grid; grid-template-columns: repeat(5, 1fr);
+    gap: 1px; margin: 20px 0 16px;
+    background: var(--border); border-radius: var(--radius); overflow: hidden;
+    border: 1px solid var(--border);
   }
   .stat-card {
-    background: var(--card); border: 1px solid var(--border); border-radius: 12px;
-    padding: 16px; text-align: center;
+    background: var(--card); padding: 16px 20px; text-align: center;
+    transition: background var(--transition);
   }
-  .stat-card .value { font-size: 28px; font-weight: 700; color: var(--accent); }
-  .stat-card .label { font-size: 12px; color: var(--text-dim); margin-top: 4px; }
+  .stat-card:hover { background: var(--card-hover); }
+  .stat-card .value {
+    font-size: 22px; font-weight: 700; color: var(--accent);
+    font-family: var(--font-mono); font-variant-numeric: tabular-nums;
+  }
+  .stat-card .label {
+    font-size: 10px; color: var(--text-muted); margin-top: 4px;
+    text-transform: uppercase; letter-spacing: 0.06em;
+    font-family: var(--font-mono);
+  }
 
-  /* Search & Layout */
+  /* ===== MAIN GRID ===== */
   .main-grid {
-    display: grid; grid-template-columns: 320px 1fr; gap: 16px;
-  }
-  @media (max-width: 900px) {
-    .main-grid { grid-template-columns: 1fr; }
+    display: grid; grid-template-columns: 300px 1fr; gap: 16px;
   }
 
   .panel {
     background: var(--card); border: 1px solid var(--border);
-    border-radius: 12px; padding: 16px;
+    border-radius: var(--radius); padding: 16px; overflow: hidden;
   }
   .panel h3 {
-    font-size: 14px; color: var(--text-dim); margin-bottom: 12px;
-    text-transform: uppercase; letter-spacing: 0.5px; font-weight: 600;
+    font-size: 10px; color: var(--text-muted); margin-bottom: 12px;
+    text-transform: uppercase; letter-spacing: 0.08em; font-weight: 600;
+    font-family: var(--font-mono);
   }
 
   .search-box {
     width: 100%; background: var(--bg); border: 1px solid var(--border);
-    border-radius: 8px; color: var(--text); padding: 10px 14px;
-    font-size: 14px; outline: none; margin-bottom: 12px;
+    border-radius: var(--radius-sm); color: var(--text); padding: 9px 12px;
+    font-size: 13px; outline: none; margin-bottom: 12px;
+    transition: all var(--transition); font-family: var(--font-sans);
   }
-  .search-box:focus { border-color: var(--accent); }
+  .search-box:focus { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-dim); }
+  .search-box::placeholder { color: var(--text-muted); }
 
-  .symptom-list {
-    max-height: 600px; overflow-y: auto;
-  }
-  .symptom-list::-webkit-scrollbar { width: 6px; }
-  .symptom-list::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+  .symptom-list { max-height: 640px; overflow-y: auto; }
+  .symptom-list::-webkit-scrollbar { width: 4px; }
+  .symptom-list::-webkit-scrollbar-thumb { background: var(--bg-subtle); border-radius: 2px; }
 
   .symptom-item {
     display: flex; justify-content: space-between; align-items: center;
-    padding: 10px 12px; border-radius: 8px; cursor: pointer;
-    transition: background 0.15s; border-left: 3px solid transparent;
+    padding: 9px 12px; border-radius: var(--radius-xs); cursor: pointer;
+    transition: all var(--transition); border-left: 2px solid transparent;
   }
-  .symptom-item:hover { background: rgba(59, 130, 246, 0.1); }
+  .symptom-item:hover { background: rgba(255,255,255,0.03); }
   .symptom-item.active {
-    background: rgba(59, 130, 246, 0.15); border-left-color: var(--accent);
+    background: var(--accent-dim); border-left-color: var(--accent);
   }
-  .symptom-item .name { font-size: 14px; font-weight: 500; }
+  .symptom-item .name { font-size: 13px; font-weight: 500; }
   .symptom-item .count {
-    font-size: 12px; color: var(--text-dim);
-    background: var(--bg); padding: 2px 8px; border-radius: 10px;
+    font-size: 11px; color: var(--text-muted);
+    background: rgba(255,255,255,0.04); padding: 2px 8px;
+    border-radius: 10px; font-family: var(--font-mono);
   }
 
-  /* Right detail panel */
+  /* ===== DETAIL PANEL ===== */
   .detail-empty {
-    text-align: center; padding: 80px 20px; color: var(--text-dim);
+    text-align: center; padding: 80px 20px; color: var(--text-muted);
   }
-  .detail-empty .icon { font-size: 48px; margin-bottom: 12px; }
-  .detail-empty p { font-size: 14px; }
+  .detail-empty .icon { font-size: 36px; margin-bottom: 12px; opacity: 0.4; }
+  .detail-empty p { font-size: 13px; }
 
   .cost-summary {
-    display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
-    gap: 10px; margin-bottom: 16px;
+    display: grid; grid-template-columns: repeat(4, 1fr);
+    gap: 1px; margin-bottom: 16px;
+    background: var(--border); border-radius: var(--radius-sm); overflow: hidden;
   }
   .cost-box {
-    background: var(--bg); border-radius: 8px; padding: 12px; text-align: center;
+    background: var(--bg); padding: 14px; text-align: center;
   }
-  .cost-box .val { font-size: 20px; font-weight: 700; }
-  .cost-box .lbl { font-size: 11px; color: var(--text-dim); margin-top: 2px; }
-  .cost-box.green .val { color: var(--green); }
+  .cost-box .val {
+    font-size: 18px; font-weight: 700;
+    font-family: var(--font-mono); font-variant-numeric: tabular-nums;
+  }
+  .cost-box .lbl { font-size: 10px; color: var(--text-muted); margin-top: 3px; font-family: var(--font-mono); text-transform: uppercase; letter-spacing: 0.04em; }
+  .cost-box.green .val { color: var(--emerald); }
   .cost-box.amber .val { color: var(--amber); }
   .cost-box.red .val { color: var(--red); }
   .cost-box.cyan .val { color: var(--cyan); }
 
-  .chart-box {
-    width: 100%; height: 350px; margin-bottom: 16px;
-  }
+  .chart-box { width: 100%; height: 320px; margin-bottom: 16px; }
 
-  /* Formula cards */
+  /* ===== FORMULA CARDS ===== */
   .formula-list { max-height: 800px; overflow-y: auto; }
+  .formula-list::-webkit-scrollbar { width: 4px; }
+  .formula-list::-webkit-scrollbar-thumb { background: var(--bg-subtle); border-radius: 2px; }
+
   .formula-card {
-    background: var(--bg); border: 1px solid var(--border); border-radius: 10px;
-    padding: 14px; margin-bottom: 10px; transition: border-color 0.2s;
+    background: var(--bg); border: 1px solid var(--border); border-radius: var(--radius-sm);
+    padding: 14px; margin-bottom: 8px; transition: border-color var(--transition);
   }
-  .formula-card:hover { border-color: var(--accent); }
+  .formula-card:hover { border-color: var(--border-hover); }
   .formula-header {
     display: flex; justify-content: space-between; align-items: center;
     margin-bottom: 8px; cursor: pointer;
   }
-  .formula-header .fname { font-size: 16px; font-weight: 600; }
-  .formula-header .fsource { font-size: 12px; color: var(--text-dim); }
-  .formula-header .fprice { font-size: 18px; font-weight: 700; color: var(--amber); }
-  .formula-tags {
-    display: flex; flex-wrap: wrap; gap: 4px; margin-bottom: 8px;
-  }
+  .formula-header .fname { font-size: 14px; font-weight: 600; }
+  .formula-header .fsource { font-size: 11px; color: var(--text-muted); font-family: var(--font-mono); }
+  .formula-header .fprice { font-size: 16px; font-weight: 700; color: var(--amber); font-family: var(--font-mono); }
+  .formula-tags { display: flex; flex-wrap: wrap; gap: 4px; margin-bottom: 6px; }
   .formula-tags span {
-    font-size: 11px; padding: 2px 8px; border-radius: 10px;
-    background: rgba(59, 130, 246, 0.15); color: var(--accent);
+    font-size: 10px; padding: 2px 8px; border-radius: 10px;
+    background: var(--accent-dim); color: var(--accent);
+    font-family: var(--font-mono);
   }
-  .formula-herbs {
-    display: none; margin-top: 10px;
-  }
+  .formula-herbs { display: none; margin-top: 10px; }
   .formula-herbs.show { display: block; }
-  .herb-table {
-    width: 100%; border-collapse: collapse; font-size: 13px;
-  }
+  .herb-table { width: 100%; border-collapse: collapse; font-size: 12px; }
   .herb-table th {
-    text-align: left; padding: 6px 8px; color: var(--text-dim);
-    border-bottom: 1px solid var(--border); font-weight: 500; font-size: 12px;
+    text-align: left; padding: 6px 8px; color: var(--text-muted);
+    border-bottom: 1px solid var(--border); font-weight: 500;
+    font-size: 10px; text-transform: uppercase; letter-spacing: 0.04em;
+    font-family: var(--font-mono);
   }
-  .herb-table td {
-    padding: 5px 8px; border-bottom: 1px solid rgba(51,65,85,0.5);
-  }
-  .herb-table tr:hover td { background: rgba(59, 130, 246, 0.05); }
-  .no-price { color: var(--text-dim); font-style: italic; }
+  .herb-table td { padding: 5px 8px; border-bottom: 1px solid rgba(255,255,255,0.02); }
+  .herb-table tr:hover td { background: rgba(255,255,255,0.02); }
+  .no-price { color: var(--text-muted); font-style: italic; }
   .herb-bar {
-    height: 4px; border-radius: 2px; background: var(--accent);
+    height: 3px; border-radius: 2px; background: var(--accent);
     margin-top: 2px; transition: width 0.3s;
   }
 
-  .loading { text-align: center; padding: 40px; color: var(--text-dim); }
+  .loading { text-align: center; padding: 40px; color: var(--text-muted); font-size: 12px; }
   .loading::after {
-    content: ''; display: inline-block; width: 20px; height: 20px;
+    content: ''; display: inline-block; width: 16px; height: 16px;
     border: 2px solid var(--border); border-top-color: var(--accent);
-    border-radius: 50%; animation: spin 0.8s linear infinite;
+    border-radius: 50%; animation: spin 0.7s linear infinite;
     margin-left: 8px; vertical-align: middle;
   }
   @keyframes spin { to { transform: rotate(360deg); } }
+
+  /* ===== SCROLLBAR ===== */
+  ::-webkit-scrollbar { width: 5px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: var(--bg-subtle); border-radius: 3px; }
+
+  /* ===== RESPONSIVE ===== */
+  @media (max-width: 900px) {
+    .main-grid { grid-template-columns: 1fr; }
+    .stats-grid { grid-template-columns: repeat(3, 1fr); }
+    .cost-summary { grid-template-columns: repeat(2, 1fr); }
+    .container { padding: 0 16px; }
+    .app-header { flex-direction: column; align-items: flex-start; gap: 12px; }
+  }
+
+  /* ===== ANIMATIONS ===== */
+  @keyframes fadeUp {
+    from { opacity: 0; transform: translateY(8px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+  .main-grid { animation: fadeUp 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards; }
+  .stats-grid { animation: fadeUp 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards; }
 </style>
 </head>
 <body>
 <div class="container">
-  <header>
-    <h1>🏥 中医病症<span>治疗成本</span>分析</h1>
-    <p>基于古籍处方 × 实时药材价格，估算各病症的中药治疗费用</p>
-    <div class="nav"><a href="./">← 药材价格趋势</a></div>
+  <header class="app-header">
+    <div class="app-brand">
+      <div class="app-brand-icon"><img src="./favicon.png" alt=""></div>
+      <div class="app-brand-text">
+        <h1>中医治疗成本分析</h1>
+        <p>ancient formulas x realtime pricing</p>
+      </div>
+    </div>
+    <nav class="app-nav">
+      <a href="./">行情</a>
+      <a href="./tcm" class="active">方剂分析</a>
+    </nav>
   </header>
 
   <!-- Overview Stats -->
   <div class="stats-grid" id="statsGrid">
-    <div class="stat-card"><div class="value" id="sFormulaCount">-</div><div class="label">古籍处方</div></div>
-    <div class="stat-card"><div class="value" id="sHerbCount">-</div><div class="label">涉及药材</div></div>
-    <div class="stat-card"><div class="value" id="sSymptomCount">-</div><div class="label">可分析病症</div></div>
-    <div class="stat-card"><div class="value" id="sPriceMatch">-</div><div class="label">有实时价格</div></div>
-    <div class="stat-card"><div class="value" id="sSourceCount">-</div><div class="label">古籍来源</div></div>
+    <div class="stat-card"><div class="value" id="sFormulaCount">-</div><div class="label">FORMULAS</div></div>
+    <div class="stat-card"><div class="value" id="sHerbCount">-</div><div class="label">HERBS</div></div>
+    <div class="stat-card"><div class="value" id="sSymptomCount">-</div><div class="label">SYMPTOMS</div></div>
+    <div class="stat-card"><div class="value" id="sPriceMatch">-</div><div class="label">W/ PRICE</div></div>
+    <div class="stat-card"><div class="value" id="sSourceCount">-</div><div class="label">SOURCES</div></div>
   </div>
 
   <!-- Main Grid -->
   <div class="main-grid">
     <!-- Left: Symptom list -->
     <div class="panel">
-      <h3>🔍 选择病症</h3>
+      <h3>Select Symptom</h3>
       <input class="search-box" id="searchInput" placeholder="搜索病症..." autocomplete="off">
       <div class="symptom-list" id="symptomList">
-        <div class="loading">加载中</div>
+        <div class="loading">Loading</div>
       </div>
     </div>
 
     <!-- Right: Detail -->
     <div class="panel" id="detailPanel">
       <div class="detail-empty" id="emptyState">
-        <div class="icon">📋</div>
+        <div class="icon">&#9670;</div>
         <p>从左侧选择一个病症，查看治疗方案及费用明细</p>
       </div>
       <div id="detailContent" style="display:none">
@@ -204,17 +282,17 @@
 
         <!-- Cost Summary -->
         <div class="cost-summary">
-          <div class="cost-box green"><div class="val" id="cMedian">-</div><div class="lbl">单剂中位价</div></div>
-          <div class="cost-box amber"><div class="val" id="cAvg">-</div><div class="lbl">单剂均价(去极值)</div></div>
-          <div class="cost-box cyan"><div class="val" id="cCourse">-</div><div class="lbl">7天疗程中位价</div></div>
-          <div class="cost-box red"><div class="val" id="cRange">-</div><div class="lbl">价格区间</div></div>
+          <div class="cost-box green"><div class="val" id="cMedian">-</div><div class="lbl">MEDIAN</div></div>
+          <div class="cost-box amber"><div class="val" id="cAvg">-</div><div class="lbl">AVG (TRIMMED)</div></div>
+          <div class="cost-box cyan"><div class="val" id="cCourse">-</div><div class="lbl">7D COURSE</div></div>
+          <div class="cost-box red"><div class="val" id="cRange">-</div><div class="lbl">RANGE</div></div>
         </div>
 
         <!-- Chart -->
         <div class="chart-box" id="costChart"></div>
 
         <!-- Formula List -->
-        <h3>📜 处方列表 (<span id="formulaTotal">0</span> 个)</h3>
+        <h3>FORMULAS (<span id="formulaTotal">0</span>)</h3>
         <div class="formula-list" id="formulaList"></div>
       </div>
     </div>
@@ -254,10 +332,10 @@ function renderSymptoms(list) {
   const html = list.map(s => `
     <div class="symptom-item" data-symptom="${s.symptom}" onclick="selectSymptom('${s.symptom}', this)">
       <span class="name">${s.symptom}</span>
-      <span class="count">${s.formulaCount} 方</span>
+      <span class="count">${s.formulaCount}</span>
     </div>
   `).join('');
-  $('#symptomList').innerHTML = html || '<p style="color:var(--text-dim);padding:12px">无匹配结果</p>';
+  $('#symptomList').innerHTML = html || '<p style="color:var(--text-muted);padding:12px">无匹配结果</p>';
 }
 
 $('#searchInput').addEventListener('input', e => {
@@ -282,8 +360,8 @@ async function selectSymptom(symptom, el) {
 
   $('#emptyState').style.display = 'none';
   $('#detailContent').style.display = 'block';
-  $('#detailTitle').textContent = `🏥 ${symptom} — 治疗方案`;
-  $('#formulaList').innerHTML = '<div class="loading">正在计算成本</div>';
+  $('#detailTitle').textContent = `${symptom}`;
+  $('#formulaList').innerHTML = '<div class="loading">Calculating</div>';
 
   try {
     const res = await fetch(`./api/tcm/symptom_cost?symptom=${encodeURIComponent(symptom)}&page=1&page_size=20&detail=1`);
@@ -301,7 +379,7 @@ async function loadMoreFormulas() {
   currentPage++;
 
   const btn = $('#loadMoreBtn');
-  if (btn) btn.textContent = '加载中…';
+  if (btn) btn.textContent = 'Loading...';
 
   try {
     const res = await fetch(`./api/tcm/symptom_cost?symptom=${encodeURIComponent(currentSymptom)}&page=${currentPage}&page_size=20&detail=1`);
@@ -317,7 +395,7 @@ async function loadMoreFormulas() {
 function renderDetail(data, append) {
   if (!data.formulas || data.formulas.length === 0) {
     if (!append) {
-      $('#formulaList').innerHTML = '<p style="color:var(--text-dim);padding:20px">暂无可计算成本的处方</p>';
+      $('#formulaList').innerHTML = '<p style="color:var(--text-muted);padding:20px">暂无可计算成本的处方</p>';
     }
     return;
   }
@@ -327,10 +405,9 @@ function renderDetail(data, append) {
     $('#cMedian').textContent = `¥${s.median_single.toFixed(2)}`;
     $('#cAvg').textContent = `¥${s.avg_single.toFixed(2)}`;
     $('#cCourse').textContent = `¥${s.median_course.toFixed(2)}`;
-    $('#cRange').textContent = `¥${s.min_single.toFixed(0)}–${s.max_single.toFixed(0)}`;
+    $('#cRange').textContent = `¥${s.min_single.toFixed(0)}-${s.max_single.toFixed(0)}`;
     $('#formulaTotal').textContent = data.formulaCount;
 
-    // 优先用后端全量分布数据
     if (data.costDistribution) {
       renderCostChartFromDistribution(data.costDistribution);
     } else {
@@ -345,7 +422,7 @@ function renderDetail(data, append) {
     if (hasHerbs) {
       const maxCost = Math.max(...f.herbs.filter(h => h.hasPrice).map(h => h.cost), 0.01);
       const herbRows = f.herbs.map(h => {
-        if (!h.hasPrice) return `<tr><td>${h.name}</td><td>${h.dosageG.toFixed(1)}g</td><td class="no-price">无报价</td><td>-</td></tr>`;
+        if (!h.hasPrice) return `<tr><td>${h.name}</td><td>${h.dosageG.toFixed(1)}g</td><td class="no-price">N/A</td><td>-</td></tr>`;
         const barW = Math.max(4, (h.cost / maxCost) * 100);
         return `<tr>
           <td>${h.name}</td>
@@ -357,7 +434,7 @@ function renderDetail(data, append) {
 
       herbSection = `<div class="formula-herbs" ${!append && i === 0 ? 'class="formula-herbs show"' : ''}>
         <table class="herb-table">
-          <tr><th>药材</th><th>用量</th><th>单价</th><th>费用</th></tr>
+          <tr><th>HERB</th><th>DOSE</th><th>UNIT PRICE</th><th>COST</th></tr>
           ${herbRows}
         </table>
       </div>`;
@@ -369,9 +446,9 @@ function renderDetail(data, append) {
       <div class="formula-header" onclick="this.parentElement.querySelector('.formula-herbs')?.classList.toggle('show')">
         <div>
           <span class="fname">${f.name}</span>
-          <span class="fsource">${f.source} · ${f.herbCount}味 · 匹配${f.matchRate}%</span>
+          <span class="fsource">${f.source} / ${f.herbCount} herbs / ${f.matchRate}% match</span>
         </div>
-        <span class="fprice">¥${f.costSingle.toFixed(2)}/剂</span>
+        <span class="fprice">¥${f.costSingle.toFixed(2)}</span>
       </div>
       <div class="formula-tags">${symptoms}</div>
       ${herbSection}
@@ -379,27 +456,25 @@ function renderDetail(data, append) {
   }).join('');
 
   if (append) {
-    // 移除旧的"加载更多"按钮，追加新卡片
     const oldBtn = $('#loadMoreBtn');
     if (oldBtn) oldBtn.remove();
     $('#formulaList').insertAdjacentHTML('beforeend', cards);
   } else {
     $('#formulaList').innerHTML = cards;
-    // 展开第一个处方的药材详情
     const firstHerbs = document.querySelector('.formula-herbs');
     if (firstHerbs) firstHerbs.classList.add('show');
   }
 
-  // 如果还有更多页，添加"加载更多"按钮
   if (currentPage < totalPages) {
     $('#formulaList').insertAdjacentHTML('beforeend',
       `<div id="loadMoreBtn" onclick="loadMoreFormulas()" style="
-        text-align:center; padding:14px; cursor:pointer; color:var(--accent);
-        font-size:14px; font-weight:500; border:1px dashed var(--border);
-        border-radius:8px; margin-top:8px; transition:all 0.2s;
+        text-align:center; padding:12px; cursor:pointer; color:var(--accent);
+        font-size:12px; font-weight:500; border:1px dashed var(--border);
+        border-radius:var(--radius-xs); margin-top:8px; transition:all var(--transition);
+        font-family:var(--font-mono);
       " onmouseover="this.style.borderColor='var(--accent)'"
         onmouseout="this.style.borderColor='var(--border)'">
-        加载更多（第 ${currentPage + 1}/${totalPages} 页）
+        Load more (${currentPage + 1}/${totalPages})
       </div>`
     );
   }
@@ -408,45 +483,50 @@ function renderDetail(data, append) {
 // ── Cost Distribution Chart (from backend full data) ──
 function renderCostChartFromDistribution(distribution) {
   if (!costChart) {
-    costChart = echarts.init($('#costChart'));
+    costChart = echarts.init($('#costChart'), 'dark');
     window.addEventListener('resize', () => costChart.resize());
   }
   costChart.setOption({
     backgroundColor: 'transparent',
     title: {
-      text: '处方费用分布（单剂）',
-      textStyle: { color: '#94a3b8', fontSize: 13, fontWeight: 500 },
+      text: 'COST DISTRIBUTION (per dose)',
+      textStyle: { color: '#52525b', fontSize: 11, fontWeight: 500, fontFamily: 'JetBrains Mono' },
       left: 0, top: 0,
     },
     tooltip: {
       trigger: 'axis',
-      formatter: p => `${p[0].name}<br/>处方数: <b>${p[0].value}</b>`,
+      backgroundColor: 'rgba(24,24,27,0.95)',
+      borderColor: 'rgba(255,255,255,0.06)',
+      textStyle: { color: '#fafafa', fontSize: 12 },
+      formatter: p => `${p[0].name}<br/>Count: <b>${p[0].value}</b>`,
     },
-    grid: { left: 50, right: 20, top: 40, bottom: 30 },
+    grid: { left: 50, right: 20, top: 36, bottom: 30 },
     xAxis: {
       type: 'category',
       data: distribution.map(b => b.label),
-      axisLabel: { color: '#94a3b8', fontSize: 11 },
-      axisLine: { lineStyle: { color: '#334155' } },
+      axisLabel: { color: '#52525b', fontSize: 10, fontFamily: 'JetBrains Mono' },
+      axisLine: { lineStyle: { color: 'rgba(255,255,255,0.06)' } },
+      axisTick: { show: false },
     },
     yAxis: {
       type: 'value',
-      axisLabel: { color: '#94a3b8' },
-      splitLine: { lineStyle: { color: '#1e293b' } },
+      axisLabel: { color: '#52525b', fontSize: 10, fontFamily: 'JetBrains Mono' },
+      splitLine: { lineStyle: { color: 'rgba(255,255,255,0.03)', type: 'dashed' } },
+      axisLine: { show: false },
     },
     series: [{
       type: 'bar',
       data: distribution.map(b => b.count),
       itemStyle: {
-        borderRadius: [4, 4, 0, 0],
+        borderRadius: [3, 3, 0, 0],
         color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [
           { offset: 0, color: '#3b82f6' },
-          { offset: 1, color: '#1e40af' },
+          { offset: 1, color: '#1d4ed8' },
         ]),
       },
       label: {
         show: true, position: 'top',
-        color: '#94a3b8', fontSize: 11,
+        color: '#52525b', fontSize: 10, fontFamily: 'JetBrains Mono',
         formatter: p => p.value > 0 ? p.value : '',
       },
     }],
@@ -456,20 +536,19 @@ function renderCostChartFromDistribution(distribution) {
 // ── Cost Distribution Chart (from page formulas, fallback) ──
 function renderCostChart(formulas) {
   if (!costChart) {
-    costChart = echarts.init($('#costChart'));
+    costChart = echarts.init($('#costChart'), 'dark');
     window.addEventListener('resize', () => costChart.resize());
   }
 
-  // Bucket formulas by cost range
   const buckets = [
-    { label: '0-5元', min: 0, max: 5, count: 0 },
-    { label: '5-10元', min: 5, max: 10, count: 0 },
-    { label: '10-20元', min: 10, max: 20, count: 0 },
-    { label: '20-50元', min: 20, max: 50, count: 0 },
-    { label: '50-100元', min: 50, max: 100, count: 0 },
-    { label: '100-200元', min: 100, max: 200, count: 0 },
-    { label: '200-500元', min: 200, max: 500, count: 0 },
-    { label: '500+元', min: 500, max: Infinity, count: 0 },
+    { label: '0-5', min: 0, max: 5, count: 0 },
+    { label: '5-10', min: 5, max: 10, count: 0 },
+    { label: '10-20', min: 10, max: 20, count: 0 },
+    { label: '20-50', min: 20, max: 50, count: 0 },
+    { label: '50-100', min: 50, max: 100, count: 0 },
+    { label: '100-200', min: 100, max: 200, count: 0 },
+    { label: '200-500', min: 200, max: 500, count: 0 },
+    { label: '500+', min: 500, max: Infinity, count: 0 },
   ];
 
   formulas.forEach(f => {
@@ -481,39 +560,44 @@ function renderCostChart(formulas) {
   costChart.setOption({
     backgroundColor: 'transparent',
     title: {
-      text: '处方费用分布（单剂）',
-      textStyle: { color: '#94a3b8', fontSize: 13, fontWeight: 500 },
+      text: 'COST DISTRIBUTION (per dose)',
+      textStyle: { color: '#52525b', fontSize: 11, fontWeight: 500, fontFamily: 'JetBrains Mono' },
       left: 0, top: 0,
     },
     tooltip: {
       trigger: 'axis',
-      formatter: p => `${p[0].name}<br/>处方数: <b>${p[0].value}</b>`,
+      backgroundColor: 'rgba(24,24,27,0.95)',
+      borderColor: 'rgba(255,255,255,0.06)',
+      textStyle: { color: '#fafafa', fontSize: 12 },
+      formatter: p => `${p[0].name}<br/>Count: <b>${p[0].value}</b>`,
     },
-    grid: { left: 50, right: 20, top: 40, bottom: 30 },
+    grid: { left: 50, right: 20, top: 36, bottom: 30 },
     xAxis: {
       type: 'category',
       data: buckets.map(b => b.label),
-      axisLabel: { color: '#94a3b8', fontSize: 11 },
-      axisLine: { lineStyle: { color: '#334155' } },
+      axisLabel: { color: '#52525b', fontSize: 10, fontFamily: 'JetBrains Mono' },
+      axisLine: { lineStyle: { color: 'rgba(255,255,255,0.06)' } },
+      axisTick: { show: false },
     },
     yAxis: {
       type: 'value',
-      axisLabel: { color: '#94a3b8' },
-      splitLine: { lineStyle: { color: '#1e293b' } },
+      axisLabel: { color: '#52525b', fontSize: 10, fontFamily: 'JetBrains Mono' },
+      splitLine: { lineStyle: { color: 'rgba(255,255,255,0.03)', type: 'dashed' } },
+      axisLine: { show: false },
     },
     series: [{
       type: 'bar',
       data: buckets.map(b => b.count),
       itemStyle: {
-        borderRadius: [4, 4, 0, 0],
+        borderRadius: [3, 3, 0, 0],
         color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [
           { offset: 0, color: '#3b82f6' },
-          { offset: 1, color: '#1e40af' },
+          { offset: 1, color: '#1d4ed8' },
         ]),
       },
       label: {
         show: true, position: 'top',
-        color: '#94a3b8', fontSize: 11,
+        color: '#52525b', fontSize: 10, fontFamily: 'JetBrains Mono',
         formatter: p => p.value > 0 ? p.value : '',
       },
     }],
