@@ -174,27 +174,40 @@ def save_events_to_db(events: list[dict], source: str = "llm_news",
     conn = get_connection()
     count = 0
 
-    # 获取已有的药材名列表用于校验
-    herb_names = set(
-        r[0] for r in conn.execute("SELECT DISTINCT herb_name FROM herb_origins").fetchall()
+    # 获取已有的药材名列表用于校验（herb_origins + estimated_daily_prices 两表取并集）
+    herb_names_origins = set(
+        r[0] for r in conn.execute(
+            "SELECT DISTINCT herb_name FROM herb_origins"
+        ).fetchall()
     )
+    herb_names_prices = set(
+        r[0] for r in conn.execute(
+            "SELECT DISTINCT name FROM estimated_daily_prices"
+        ).fetchall()
+    )
+    all_herb_names = herb_names_origins | herb_names_prices
 
     for evt in events:
-        herb_name = evt.get("herb_name", "")
+        herb_name = evt.get("herb_name", "").strip()
         confidence = evt.get("confidence", 0)
 
-        # 校验：药材名必须存在 + 置信度阈值
+        # 校验：置信度阈值
         if confidence < 0.6:
             log.debug(f"跳过低置信度事件: {herb_name} conf={confidence}")
             continue
 
-        if herb_name not in herb_names:
-            # 尝试模糊匹配
-            matched = [h for h in herb_names if herb_name in h or h in herb_name]
+        # 精确匹配
+        if herb_name not in all_herb_names:
+            # 尝试模糊匹配（herb_name 是 "白术" 而表中是 "白术（亳州）" 等情况）
+            matched = [h for h in all_herb_names if herb_name in h or h in herb_name]
+            # 排除 "中药材" 等泛称
+            matched = [h for h in matched if len(h) >= 2 and len(herb_name) >= 2
+                       and herb_name not in ("中药材", "药材", "饮片", "中草药")]
             if matched:
-                herb_name = matched[0]
+                herb_name = min(matched, key=len)  # 取最短（最精确）匹配
+                log.debug(f"模糊匹配: {evt['herb_name']} → {herb_name}")
             else:
-                log.debug(f"跳过未知药材: {herb_name}")
+                log.debug(f"跳过未知药材: '{herb_name}'")
                 continue
 
         event_type = evt.get("event_type", "")
@@ -209,15 +222,22 @@ def save_events_to_db(events: list[dict], source: str = "llm_news",
         region = evt.get("affected_region", "")
         summary = evt.get("summary", "")
         impact_pct = evt.get("estimated_impact_pct")
+        price_direction = evt.get("price_direction", "neutral")
+
+        detail = f"[LLM|{source}] {summary}"
+        if news_url:
+            detail += f" | {news_url[:100]}"
 
         try:
             conn.execute("""
                 INSERT INTO weather_events
-                (origin, province, event_type, start_date, severity, detail, affected_herbs)
-                VALUES (?, ?, ?, ?, ?, ?, ?)
+                (origin, province, event_type, start_date, severity, detail,
+                 affected_herbs, price_impact_pct)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?)
             """, (
                 region, "", event_type, date.today().isoformat(),
-                severity, f"[LLM] {summary}", herb_name
+                severity, detail, herb_name,
+                float(impact_pct) if impact_pct is not None else None,
             ))
             count += 1
         except Exception as e:

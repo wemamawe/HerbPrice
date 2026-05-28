@@ -296,6 +296,121 @@ def api_news_interpret():
         return jsonify({"error": f"新闻解读失败: {str(e)}"}), 500
 
 
+@app.route("/api/news/list")
+def api_news_list():
+    """获取已爬取的新闻列表
+
+    Query params:
+        herb: 药材名（可选）
+        source: 来源筛选（可选）
+        days: 最近N天（默认30）
+        page: 页码（默认1）
+        page_size: 每页条数（默认20）
+    """
+    from datetime import date, timedelta
+    herb = request.args.get("herb", "")
+    source = request.args.get("source", "")
+    days = int(request.args.get("days", 30))
+    page = max(1, int(request.args.get("page", 1)))
+    page_size = min(100, max(1, int(request.args.get("page_size", 20))))
+    cutoff = (date.today() - timedelta(days=days)).isoformat()
+
+    try:
+        conn = get_connection()
+
+        conditions = ["pub_date >= ?"]
+        params: list = [cutoff]
+        if herb:
+            conditions.append("(herb_names LIKE ? OR title LIKE ?)")
+            params.extend([f"%{herb}%", f"%{herb}%"])
+        if source:
+            conditions.append("source_site LIKE ?")
+            params.append(f"%{source}%")
+
+        where = " AND ".join(conditions)
+        total = conn.execute(
+            f"SELECT COUNT(*) FROM herb_news WHERE {where}", params
+        ).fetchone()[0]
+
+        offset = (page - 1) * page_size
+        rows = conn.execute(
+            f"""SELECT id, title, url, pub_date, source_site, herb_names, regions,
+                       is_processed, llm_events
+                FROM herb_news WHERE {where}
+                ORDER BY pub_date DESC, id DESC
+                LIMIT ? OFFSET ?""",
+            params + [page_size, offset]
+        ).fetchall()
+        conn.close()
+
+        import json as _json
+        return jsonify({
+            "total": total,
+            "page": page,
+            "pageSize": page_size,
+            "totalPages": (total + page_size - 1) // page_size,
+            "news": [{
+                "id": r["id"],
+                "title": r["title"],
+                "url": r["url"],
+                "pubDate": r["pub_date"],
+                "source": r["source_site"],
+                "herbs": [h for h in r["herb_names"].split(",") if h],
+                "regions": [rg for rg in r["regions"].split(",") if rg],
+                "events": _json.loads(r["llm_events"]) if r["is_processed"] and r["llm_events"] else [],
+            } for r in rows],
+        })
+    except Exception as e:
+        return jsonify({"error": f"查询失败: {str(e)}"}), 500
+
+
+@app.route("/api/news/events")
+def api_news_events():
+    """获取新闻解读出的市场事件（weather_events 中 LLM 来源的）
+
+    Query params:
+        herb: 药材名（可选）
+        type: 事件类型（可选）
+        days: 最近N天（默认90）
+    """
+    from datetime import date, timedelta
+    herb = request.args.get("herb", "")
+    event_type = request.args.get("type", "")
+    days = int(request.args.get("days", 90))
+    cutoff = (date.today() - timedelta(days=days)).isoformat()
+
+    conn = get_connection()
+    conditions = ["start_date >= ?", "detail LIKE '%[LLM%'"]
+    params: list = [cutoff]
+    if herb:
+        conditions.append("affected_herbs LIKE ?")
+        params.append(f"%{herb}%")
+    if event_type:
+        conditions.append("event_type = ?")
+        params.append(event_type)
+
+    where = " AND ".join(conditions)
+    rows = conn.execute(
+        f"""SELECT event_type, start_date, severity, origin, affected_herbs,
+                   detail, price_impact_pct
+            FROM weather_events WHERE {where}
+            ORDER BY start_date DESC, severity DESC
+            LIMIT 200""",
+        params
+    ).fetchall()
+    conn.close()
+
+    return jsonify([{
+        "eventType": r["event_type"],
+        "date": r["start_date"],
+        "severity": r["severity"],
+        "region": r["origin"],
+        "herb": r["affected_herbs"],
+        "summary": r["detail"].replace("[LLM|llm_news] ", "").split(" | ")[0],
+        "priceImpactPct": r["price_impact_pct"],
+    } for r in rows])
+
+
 # ── TCM 分析 API ─────────────────────────────────────────
 
 @app.route("/api/tcm/symptoms")
