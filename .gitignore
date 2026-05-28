@@ -34,3 +34,29 @@ __MACOSX/
 .vscode/
 .env
 report_assets/fonts/*.ttf
+
+# 爬虫（数据采集，不上传）
+crawler.py
+index_crawler.py
+origin_crawler.py
+news_crawler.py
+llm_news_interpreter.py
+weather_backfill.py
+weather_monitor.py
+
+# 定时任务 & 本地脚本
+cron_update.sh
+com.priceindex.update.plist
+note.sh
+update.sh
+
+# 模型文件（体积大，本地训练生成）
+models/*.pkl
+models/*.joblib
+
+# 生成的报告/数据
+data/reports/
+data/*.json
+
+# 本地 zip 压缩包
+*.zip
