@@ -166,13 +166,25 @@ def interpret_batch(news_list: list[str], llm_client=None) -> list[dict]:
 
 
 def save_events_to_db(events: list[dict], source: str = "llm_news",
-                      news_url: str = "") -> int:
+                      news_url: str = "", event_date: str = "") -> int:
     """将 LLM 解读的事件存入 weather_events 表
+
+    Args:
+        events: LLM 解读结果列表
+        source: 来源标识
+        news_url: 新闻原文链接（用于溯源）
+        event_date: 新闻发布日期 YYYY-MM-DD（优先使用，否则用 today）
 
     Returns: 成功入库的事件数
     """
     conn = get_connection()
     count = 0
+
+    # 确定事件日期
+    start_date_val = (
+        event_date if event_date and len(event_date) == 10
+        else date.today().isoformat()
+    )
 
     # 获取已有的药材名列表用于校验（herb_origins + estimated_daily_prices 两表取并集）
     herb_names_origins = set(
@@ -235,7 +247,7 @@ def save_events_to_db(events: list[dict], source: str = "llm_news",
                  affected_herbs, price_impact_pct)
                 VALUES (?, ?, ?, ?, ?, ?, ?, ?)
             """, (
-                region, "", event_type, date.today().isoformat(),
+                region, "", event_type, start_date_val,
                 severity, detail, herb_name,
                 float(impact_pct) if impact_pct is not None else None,
             ))

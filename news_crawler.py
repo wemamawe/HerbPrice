@@ -271,12 +271,24 @@ class ZyctdNewsCrawler(BaseCrawler):
         if not soup:
             return item
 
-        # 找发布日期
-        for sel in [".pub-date", ".article-date", ".time", "time", ".date"]:
+        # 找发布日期: zyctd 日期在 div.author 或裸 span（格式 "2026-05-28 11:05"）
+        date_found = ""
+        for sel in ["div.author", "div.art-info", ".pub-date", "time"]:
             el = soup.select_one(sel)
             if el:
-                item["pub_date"] = self.extract_date(el.get_text())
-                break
+                d = self.extract_date(el.get_text())
+                if d != date.today().isoformat():  # 提取到了真实日期
+                    date_found = d
+                    break
+        if not date_found:
+            # 备选：找所有裸 span，取第一个含日期的
+            for span in soup.find_all("span"):
+                txt = span.get_text(strip=True)
+                if re.match(r"20\d{2}-\d{2}-\d{2}", txt):
+                    date_found = txt[:10]
+                    break
+        if date_found:
+            item["pub_date"] = date_found
 
         # zyctd 正文：收集所有内容长度 > 30 的 p 标签文本
         # （排除声明/版权/联系类段落）
@@ -399,6 +411,16 @@ class KmzywCrawler(BaseCrawler):
             return item
 
         # kmzyw 正文：聚合有效 p 标签
+        # 日期在 span 或 div.source-wrap 中（"2026-05-27 17:25:01"）
+        if not item.get("pub_date") or item["pub_date"] == date.today().isoformat():
+            for sel in ["span", "div.source-wrap", "div.sub-wrap"]:
+                for el in soup.select(sel):
+                    txt = el.get_text(strip=True)
+                    if re.match(r"20\d{2}-\d{2}-\d{2}", txt):
+                        item["pub_date"] = txt[:10]
+                        break
+                if item.get("pub_date") and item["pub_date"] != date.today().isoformat():
+                    break
         exclude_kw = ["以上就是", "更多中药材", "康美中药网", "声明", "版权",
                       "联系我们", "ICP", "备案"]
         paras = []
@@ -515,6 +537,173 @@ class BaiduNewsSpider(BaseCrawler):
         return items
 
 
+class HistoricalSearchCrawler(BaseCrawler):
+    """历年新闻搜索爬虫
+
+    策略：按年份 × 关键词组合，用百度/必应搜索历史新闻
+    关键词模板：
+      - "{品种} 减产 {年}"
+      - "{品种} 干旱 {年}"
+      - "{品种} 洪涝 {年}"
+      - "{品种} 扩种 {年}"
+      - "{产区} 药材 灾害 {年}"
+      - "中药材 政策 {年}"
+    """
+
+    # 按重要性排序的品种（每次搜索的优先品种）
+    PRIORITY_HERBS = [
+        "当归", "白术", "白芍", "黄芪", "党参", "三七", "金银花",
+        "麦冬", "川芎", "半夏", "茯苓", "甘草", "丹参", "连翘",
+        "板蓝根", "人参", "天麻", "黄连", "柴胡", "防风",
+    ]
+
+    # 事件关键词分组（每组对应一类事件）
+    EVENT_KEYWORDS = {
+        "disaster": ["减产", "干旱", "洪涝", "霜冻", "冻害", "病虫害", "绝收", "灾害"],
+        "market":   ["扩种", "缩种", "价格暴涨", "价格暴跌", "供不应求", "滞销", "集采"],
+        "policy":   ["出口禁止", "出口限制", "补贴政策", "纳入医保", "道地药材"],
+    }
+
+    def _baidu_search(self, query: str) -> list[dict]:
+        """百度搜索，返回结果列表"""
+        url = f"https://www.baidu.com/s?wd={requests.utils.quote(query)}&rn=10&ie=utf-8"
+        headers = {**REQUEST_HEADERS, "Referer": "https://www.baidu.com/"}
+        try:
+            resp = self.session.get(url, timeout=REQUEST_TIMEOUT, headers=headers)
+            resp.encoding = "utf-8"
+            soup = BeautifulSoup(resp.text, "lxml")
+        except Exception as e:
+            log.warning(f"百度搜索失败: {query[:30]} -> {e}")
+            return []
+
+        items = []
+        for block in soup.select("div.result, .c-container"):
+            a = block.select_one("h3 a, .c-title a, a")
+            if not a:
+                continue
+            title = a.get_text(strip=True)
+            href = a.get("href", "")
+            desc_el = block.select_one(".c-abstract, .c-span-last, p")
+            desc = desc_el.get_text(strip=True) if desc_el else ""
+            full_text = block.get_text(" ", strip=True)
+            if len(title) < 5:
+                continue
+            # 从页面文本中提取日期
+            pub_date = self.extract_date(full_text)
+            items.append({
+                "title": title,
+                "url": href,
+                "pub_date": pub_date,
+                "source_site": "baidu_hist",
+                "herb_names": self.detect_herbs(title + " " + desc),
+                "regions": self.detect_regions(title + " " + desc),
+                "content": desc[:500],
+            })
+        return items
+
+    def _bing_search(self, query: str) -> list[dict]:
+        """必应搜索（百度反爬时备用）"""
+        url = f"https://cn.bing.com/search?q={requests.utils.quote(query)}&count=10"
+        headers = {
+            **REQUEST_HEADERS,
+            "Referer": "https://cn.bing.com/",
+        }
+        try:
+            resp = self.session.get(url, timeout=REQUEST_TIMEOUT, headers=headers)
+            resp.encoding = "utf-8"
+            soup = BeautifulSoup(resp.text, "lxml")
+        except Exception as e:
+            log.warning(f"必应搜索失败: {query[:30]} -> {e}")
+            return []
+
+        items = []
+        for li in soup.select("li.b_algo"):
+            a = li.select_one("h2 a")
+            if not a:
+                continue
+            title = a.get_text(strip=True)
+            href = a.get("href", "")
+            desc_el = li.select_one(".b_caption p, .b_algoSlug")
+            desc = desc_el.get_text(strip=True) if desc_el else ""
+            pub_date = self.extract_date(li.get_text(" "))
+            items.append({
+                "title": title,
+                "url": href,
+                "pub_date": pub_date,
+                "source_site": "bing_hist",
+                "herb_names": self.detect_herbs(title + " " + desc),
+                "regions": self.detect_regions(title + " " + desc),
+                "content": desc[:500],
+            })
+        return items
+
+    def search_year(self, year: int, use_bing_fallback: bool = True) -> list[dict]:
+        """搜索指定年份的历史事件新闻
+
+        Returns: 去重后的新闻列表
+        """
+        all_items: list[dict] = []
+        seen: set[str] = set()
+
+        def add_items(new_items: list[dict]):
+            for it in new_items:
+                key = it.get("url") or it["title"]
+                if key not in seen:
+                    seen.add(key)
+                    all_items.append(it)
+
+        # 1. 品种 × 灾害关键词
+        for herb in self.PRIORITY_HERBS:
+            for kw in self.EVENT_KEYWORDS["disaster"][:4]:  # 每品种取前4个关键词
+                query = f"{herb} {kw} {year}"
+                results = self._baidu_search(query)
+                if not results and use_bing_fallback:
+                    results = self._bing_search(query)
+                # 过滤：只保留标题/内容中确实含该年份或前后1年的
+                valid = [
+                    r for r in results
+                    if str(year) in r.get("pub_date", "") + r["title"] + r.get("content", "")
+                    or str(year - 1) in r.get("pub_date", "")
+                ]
+                add_items(valid)
+                time.sleep(REQUEST_INTERVAL)
+
+        # 2. 品种 × 市场关键词（扩种/价格）
+        for herb in self.PRIORITY_HERBS[:12]:  # 只搜 Top 12 品种
+            for kw in self.EVENT_KEYWORDS["market"][:3]:
+                query = f"{herb} {kw} {year}"
+                results = self._baidu_search(query)
+                add_items([r for r in results if str(year) in r["title"] + r.get("content", "")])
+                time.sleep(REQUEST_INTERVAL)
+
+        # 3. 产区 × 灾害关键词
+        for origin in TOP_ORIGINS[:10]:
+            query = f"{origin} 中药材 灾害 {year}"
+            results = self._baidu_search(query)
+            add_items(results)
+            time.sleep(REQUEST_INTERVAL)
+
+        # 4. 综合政策类
+        for kw in self.EVENT_KEYWORDS["policy"]:
+            query = f"中药材 {kw} {year}"
+            results = self._baidu_search(query)
+            add_items(results)
+            time.sleep(REQUEST_INTERVAL)
+
+        log.info(f"[历年搜索][{year}] 共获取 {len(all_items)} 条")
+        return all_items
+
+    def crawl_years(self, start_year: int = 2021, end_year: int = 2025) -> list[dict]:
+        """批量爬取多年历史新闻"""
+        all_items: list[dict] = []
+        for year in range(end_year, start_year - 1, -1):  # 从最近年份倒序
+            log.info(f"=== 搜索 {year} 年历史事件 ===")
+            items = self.search_year(year)
+            all_items.extend(items)
+            time.sleep(REQUEST_INTERVAL * 2)  # 年份间多等一会
+        return all_items
+
+
 # ══════════════════════════════════════════════════════════════════
 # LLM 解读 & 事件入库
 # ══════════════════════════════════════════════════════════════════
@@ -549,7 +738,11 @@ def process_unprocessed_news(batch_size: int = 30) -> int:
         mark_news_processed(news["id"], json.dumps(events, ensure_ascii=False))
 
         if events:
-            saved = save_events_to_db(events, news_url=news.get("url", ""))
+            saved = save_events_to_db(
+                events,
+                news_url=news.get("url", ""),
+                event_date=news.get("pub_date", ""),
+            )
             total_events += saved
             if saved > 0:
                 log.info(
@@ -675,6 +868,44 @@ def run_full_crawl(
     }
 
 
+def run_historical_crawl(
+    start_year: int = 2021,
+    end_year: int = 2025,
+    llm_interpret: bool = True,
+) -> dict:
+    """爬取历年事件新闻（百度/必应搜索）
+
+    Args:
+        start_year: 起始年份
+        end_year: 截止年份（含）
+        llm_interpret: 是否 LLM 解读
+
+    Returns:
+        {"fetched": N, "new": M, "events": K}
+    """
+    ensure_news_table()
+    crawler = HistoricalSearchCrawler()
+    all_items = crawler.crawl_years(start_year=start_year, end_year=end_year)
+
+    # 去重
+    seen_urls: set[str] = set()
+    unique_items: list[dict] = []
+    for item in all_items:
+        key = item.get("url") or item["title"]
+        if key not in seen_urls:
+            seen_urls.add(key)
+            unique_items.append(item)
+
+    new_count = save_news(unique_items)
+    log.info(f"历年搜索: 原始 {len(all_items)} 条 → 去重 {len(unique_items)} 条 → 新增 {new_count} 条")
+
+    event_count = 0
+    if llm_interpret:
+        event_count = process_unprocessed_news(batch_size=100)
+
+    return {"fetched": len(unique_items), "new": new_count, "events": event_count}
+
+
 def print_stats():
     """打印数据库中新闻和事件的统计信息"""
     ensure_news_table()
@@ -701,9 +932,19 @@ def print_stats():
     for s in sources:
         print(f"  {s[0]:30} {s[1]}")
 
-    # 事件统计
-    events = conn.execute("SELECT COUNT(*) FROM weather_events").fetchone()[0]
-    print(f"\nweather_events 表: {events} 条")
+    # 事件统计（按年）
+    events_total = conn.execute("SELECT COUNT(*) FROM weather_events").fetchone()[0]
+    print(f"\nweather_events 表: {events_total} 条")
+
+    by_year = conn.execute("""
+        SELECT strftime('%Y', start_date) as yr, COUNT(*) as cnt
+        FROM weather_events
+        GROUP BY yr ORDER BY yr
+    """).fetchall()
+    print("\n按年分布:")
+    for r in by_year:
+        bar = "█" * min(30, r[1] // 5)
+        print(f"  {r[0]}: {r[1]:4}条  {bar}")
 
     by_type = conn.execute(
         "SELECT event_type, COUNT(*) FROM weather_events GROUP BY event_type ORDER BY 2 DESC"
@@ -735,8 +976,9 @@ if __name__ == "__main__":
 
     parser = argparse.ArgumentParser(description="中药材新闻多源爬取")
     parser.add_argument("cmd", nargs="?", default="run",
-                        choices=["run", "fetch", "stats", "llm"],
-                        help="run=全量爬取+解读, fetch=只爬取, stats=统计, llm=只跑LLM解读")
+                        choices=["run", "fetch", "stats", "llm", "history"],
+                        help="run=全量爬取+解读, fetch=只爬取, stats=统计, "
+                             "llm=只跑LLM解读, history=历年搜索")
     parser.add_argument("--herb", nargs="+", help="指定品种（可多个）")
     parser.add_argument("--days", type=int, default=90,
                         help="只保留最近N天的新闻（默认90）")
@@ -744,6 +986,10 @@ if __name__ == "__main__":
                         help="跳过LLM解读步骤")
     parser.add_argument("--batch", type=int, default=50,
                         help="LLM 单批处理数量（默认50）")
+    parser.add_argument("--start-year", type=int, default=2021,
+                        help="历年搜索起始年份（默认2021）")
+    parser.add_argument("--end-year", type=int, default=2025,
+                        help="历年搜索截止年份（默认2025）")
     args = parser.parse_args()
 
     if args.cmd == "stats":
@@ -753,6 +999,18 @@ if __name__ == "__main__":
         ensure_news_table()
         count = process_unprocessed_news(batch_size=args.batch)
         print(f"LLM 解读完成，入库事件: {count}")
+
+    elif args.cmd == "history":
+        ensure_news_table()
+        result = run_historical_crawl(
+            start_year=args.start_year,
+            end_year=args.end_year,
+            llm_interpret=not args.no_llm,
+        )
+        print(f"\n历年搜索完成:")
+        print(f"  爬取新闻: {result['fetched']} 条（新增 {result['new']} 条）")
+        print(f"  入库事件: {result['events']} 条")
+        print_stats()
 
     elif args.cmd == "fetch":
         ensure_news_table()
@@ -775,3 +1033,4 @@ if __name__ == "__main__":
         print(f"  爬取新闻: {result['fetched']} 条（新增 {result['new']} 条）")
         print(f"  入库事件: {result['events']} 条")
         print_stats()
+
