@@ -244,69 +244,136 @@ def calc_production_concentration_risk(herb_name: str) -> float:
     return 1.0
 
 
-def get_historical_weather_impact(herb_name: str) -> float:
-    """基于历史气象事件与价格的相关性，计算当前活跃事件的影响
+def get_historical_weather_impact(herb_name: str) -> tuple[float, list[str]]:
+    """基于近期事件 + 历史实证数据计算价格影响系数
 
-    查询最近3个月内该药材产区是否有活跃的气象异常事件，
-    并基于历史上同类事件的实际价格影响来估算当前影响。
+    改进点：
+    1. demand_surge 过滤：severity < 0.5 的日常行情小波动不计入
+    2. 时效衰减：越老的事件权重越低（90天半衰期）
+    3. 历史实证优先：同品种同类型事件有 ≥2 条历史记录时用均值
+    4. area 事件与种植周期联动：延后 = 生长周期年数
+    5. 上限收紧到 ±20%（避免单品种事件堆叠过度放大）
 
-    Returns: 价格调整系数 (如 1.05 表示预计上涨5%)
+    Returns:
+        (factor, reasons): 价格调整系数 + 原因列表
     """
-    conn = get_connection()
-
-    # 查询最近3个月该药材产区的活跃异常事件
     from datetime import timedelta
-    three_months_ago = (date.today() - timedelta(days=90)).isoformat()
+    import math
 
+    conn = get_connection()
+    today = date.today()
+    reasons: list[str] = []
+
+    # ── 1. 近6个月活跃事件（扩大窗口，配合时效衰减） ──────────────
+    six_months_ago = (today - timedelta(days=180)).isoformat()
     recent_events = conn.execute("""
-        SELECT we.event_type, we.severity, we.origin, we.price_impact_pct
-        FROM weather_events we
-        WHERE we.affected_herbs = ?
-              AND we.start_date >= ?
-        ORDER BY we.start_date DESC
-    """, (herb_name, three_months_ago)).fetchall()
+        SELECT event_type, severity, start_date, price_impact_pct
+        FROM weather_events
+        WHERE affected_herbs = ? AND start_date >= ?
+        ORDER BY start_date DESC
+    """, (herb_name, six_months_ago)).fetchall()
 
     if not recent_events:
         conn.close()
-        return 1.0
+        return 1.0, []
 
-    # 查询历史上同类事件的平均实际价格影响
-    historical_impacts = {}
-    for evt_type in set(r["event_type"] for r in recent_events):
+    # ── 2. 过滤：demand_surge 低置信度 + 极低 severity ────────────
+    DEMAND_SEVERITY_MIN = 0.4   # demand_surge 至少需要 0.4 严重度
+    SEVERITY_MIN = 0.2          # 其他类型至少 0.2
+    filtered = []
+    for evt in recent_events:
+        sev = evt["severity"]
+        etype = evt["event_type"]
+        if etype == "demand_surge" and sev < DEMAND_SEVERITY_MIN:
+            continue
+        if sev < SEVERITY_MIN:
+            continue
+        filtered.append(evt)
+
+    if not filtered:
+        conn.close()
+        return 1.0, []
+
+    # ── 3. 查询历史实证均值（同品种同类型） ───────────────────────
+    historical_impacts: dict[str, float] = {}
+    for evt_type in set(r["event_type"] for r in filtered):
         row = conn.execute("""
-            SELECT AVG(price_impact_pct) as avg_impact,
-                   COUNT(*) as cnt
+            SELECT AVG(price_impact_pct) as avg_impact, COUNT(*) as cnt
             FROM weather_events
             WHERE affected_herbs = ? AND event_type = ?
-                  AND price_impact_pct IS NOT NULL
+              AND price_impact_pct IS NOT NULL
+              AND ABS(price_impact_pct) > 0.5   -- 排除无意义的零值
         """, (herb_name, evt_type)).fetchone()
-        if row and row["avg_impact"] is not None and row["cnt"] >= 3:
-            historical_impacts[evt_type] = row["avg_impact"] / 100  # 转为比例
+        if row and row["avg_impact"] is not None and row["cnt"] >= 2:
+            historical_impacts[evt_type] = row["avg_impact"] / 100.0
 
     conn.close()
 
-    # 综合计算当前活跃事件的预期影响
+    # ── 4. area 事件延迟检查（生长周期内不影响现价） ─────────────
+    cycle_years = get_growth_cycle(herb_name)
+    cycle_days = cycle_years * 365
+
+    # 默认影响基准（无历史实证时使用）
+    DEFAULT_IMPACTS: dict[str, float] = {
+        "drought":         0.06,
+        "flood":           0.08,
+        "frost":           0.05,
+        "pest":            0.04,
+        "heat_wave":       0.03,
+        "area_decrease":   0.04,
+        "area_increase":  -0.04,
+        "demand_surge":    0.06,
+        "export_ban":     -0.04,
+        "policy_positive": 0.03,
+    }
+
+    # ── 5. 逐条计算（含时效衰减） ─────────────────────────────────
     total_impact = 0.0
-    for evt in recent_events:
-        evt_type = evt["event_type"]
-        severity = evt["severity"]
+    used_events: list[str] = []
 
-        if evt_type in historical_impacts:
-            # 使用历史实证数据
-            base_impact = historical_impacts[evt_type]
+    for evt in filtered:
+        etype = evt["event_type"]
+        sev = float(evt["severity"])
+        evt_date = evt["start_date"]
+        days_ago = (today - date.fromisoformat(evt_date[:10])).days
+
+        # area 事件：生长周期内效果递进，超出周期才完全生效
+        if etype in ("area_increase", "area_decrease"):
+            # 种植周期内按进度比例生效（0→100%）
+            progress = min(days_ago / max(cycle_days, 30), 1.0)
         else:
-            # 使用默认估计
-            default_impacts = {
-                "drought": 0.05, "flood": 0.08,
-                "heat_wave": 0.03, "frost": 0.05,
-            }
-            base_impact = default_impacts.get(evt_type, 0.03)
+            # 其他事件：90天半衰期时效衰减
+            progress = math.exp(-days_ago / 90.0)
 
-        total_impact += base_impact * severity
+        # 取历史实证 or 默认值
+        if etype in historical_impacts:
+            base = historical_impacts[etype]
+            source = "实证"
+        else:
+            base = DEFAULT_IMPACTS.get(etype, 0.03)
+            source = "估算"
 
-    # 限制范围
-    factor = 1.0 + min(total_impact, 0.25)
-    return round(factor, 4)
+        contribution = base * sev * progress
+        if abs(contribution) >= 0.005:  # 过小的贡献忽略
+            total_impact += contribution
+            used_events.append(
+                f"{etype}({sev:.1f}严重 ×{progress:.2f}时效={contribution*100:+.1f}%[{source}])"
+            )
+
+    if not used_events:
+        return 1.0, []
+
+    # ── 6. 限制幅度 ±20% ─────────────────────────────────────────
+    total_impact = max(-0.20, min(0.20, total_impact))
+    factor = 1.0 + total_impact
+
+    direction = "↑" if total_impact > 0 else "↓"
+    reasons.append(
+        f"近期事件综合影响 {direction}{abs(total_impact)*100:.1f}%"
+        f"（{len(used_events)}条有效事件）"
+    )
+
+    return round(factor, 4), reasons
 
 
 def get_price_adjustment(herb_name: str, events: list[dict] | None = None) -> dict:
@@ -357,10 +424,15 @@ def get_price_adjustment(herb_name: str, events: list[dict] | None = None) -> di
     # 3.5) 历史气象事件实证影响（基于该品种历史数据）
     historical_weather = 1.0
     try:
-        historical_weather = get_historical_weather_impact(herb_name)
+        historical_weather, hw_reasons = get_historical_weather_impact(herb_name)
         if historical_weather > 1.02:
-            reasons.append(f"近期产区气象异常（历史实证）(+{(historical_weather-1)*100:.1f}%)")
+            reasons.extend(hw_reasons)
+            reasons.append(f"  → 近期事件上调 +{(historical_weather-1)*100:.1f}%")
             confidence += 0.15
+        elif historical_weather < 0.98:
+            reasons.extend(hw_reasons)
+            reasons.append(f"  → 近期事件下调 {(historical_weather-1)*100:.1f}%")
+            confidence += 0.10
     except Exception:
         pass
 
