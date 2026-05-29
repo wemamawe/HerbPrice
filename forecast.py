@@ -252,7 +252,7 @@ def forecast_variety(name: str, periods: int = FORECAST_DAYS) -> dict:
                 weights[:, 1] * ridge_pred +
                 weights[:, 2] * ema_pred)
 
-    # 5) 多因子调整
+    # 5) 多因子调整（分层渐进 + 长期衰减）
     factors_info = None
     try:
         from forecast_factors import get_price_adjustment
@@ -260,10 +260,46 @@ def forecast_variety(name: str, periods: int = FORECAST_DAYS) -> dict:
         factor = factors["factor"]
 
         if abs(factor - 1.0) > 0.005:
-            # 因子渐进应用：前30天线性过渡，之后完全生效
+            deviation = factor - 1.0  # 正=看涨, 负=看跌
+
+            # ── 把综合 factor 拆解为两层分别施加 ──────────────────
+            # 层1：短中期信号（季节 + 事件）→ 快速生效，90天后衰减
+            # 层2：供给周期信号              → 慢速生效，持续更久
+            seasonal_f = factors.get("seasonal", 1.0)
+            event_f    = factors.get("event_impact", 1.0)
+            supply_f   = factors.get("supply_cycle", 1.0)
+
+            short_dev  = (seasonal_f - 1.0) + (event_f - 1.0)   # 短中期
+            long_dev   = (supply_f - 1.0)                         # 长期
+
+            # 其余部分（集中度风险等）归入短中期
+            residual   = deviation - short_dev - long_dev
+            short_dev += residual * 0.5
+            long_dev  += residual * 0.5
+
             for i in range(periods):
-                blend = min(1.0, (i + 1) / 30)  # 30天内线性过渡
-                day_factor = 1.0 + (factor - 1.0) * blend
+                t = i + 1  # 1-based
+
+                # 短中期：前30天线性上升，30-90天满载，90天后指数衰减
+                if t <= 30:
+                    w_short = t / 30
+                elif t <= 90:
+                    w_short = 1.0
+                else:
+                    # 90天后按 120天半衰期衰减（事件影响逐渐消退）
+                    w_short = np.exp(-(t - 90) / 120.0)
+
+                # 供给周期：前60天缓慢爬升（供给释放有滞后），之后稳定保持
+                if t <= 60:
+                    w_long = t / 60
+                else:
+                    w_long = 1.0  # 供给结构性变化长期持续，不衰减
+
+                day_factor = (1.0
+                              + short_dev * w_short
+                              + long_dev  * w_long)
+                # 单日最大偏离限制（避免极端）
+                day_factor = max(0.80, min(1.35, day_factor))
                 ensemble[i] *= day_factor
 
         factors_info = factors
