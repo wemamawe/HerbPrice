@@ -376,6 +376,217 @@ def get_historical_weather_impact(herb_name: str) -> tuple[float, list[str]]:
     return round(factor, 4), reasons
 
 
+def _calc_direction_signal(
+    herb_name: str,
+    seasonal: float,
+    supply_cycle: float,
+    historical_weather: float,
+    factor: float,
+) -> dict:
+    """综合多维信号，生成方向置信度评分
+
+    评分体系（总分 -100 ~ +100）：
+    - 技术动量信号（RSI + 均线）：±25分
+    - 供给周期信号（种植周期推算）：±25分
+    - 季节性信号（产新节律）：±15分
+    - 事件驱动信号（近期新闻事件）：±20分
+    - 价格位置信号（历史分位）：±15分
+
+    Returns:
+        {
+            "label": "强势" | "偏强" | "中性" | "偏弱" | "弱势",
+            "score": int,          # -100 ~ +100，正为看涨
+            "confidence": float,   # 信号可靠性 0~1
+            "components": dict,    # 各分项得分
+            "summary": str,        # 一句话概述
+            "tags": list[str],     # 关键标签，如 ["产新压力", "扩种周期"]
+        }
+    """
+    conn = get_connection()
+    today = date.today()
+    components: dict[str, int] = {}
+    tags: list[str] = []
+
+    # ── 1. 技术动量信号（±25分）────────────────────────────────
+    tech_score = 0
+    rows = conn.execute(
+        "SELECT price FROM estimated_daily_prices WHERE name=? ORDER BY date DESC LIMIT 120",
+        (herb_name,)
+    ).fetchall()
+    if rows and len(rows) >= 30:
+        prices = [r["price"] for r in reversed(rows)]
+        p = prices[-1]
+        ma30 = sum(prices[-30:]) / 30
+        ma90 = sum(prices[-90:]) / 90 if len(prices) >= 90 else ma30
+
+        # RSI(14)
+        gains = [max(0, prices[i]-prices[i-1]) for i in range(-14, 0)]
+        losses = [max(0, prices[i-1]-prices[i]) for i in range(-14, 0)]
+        avg_g = sum(gains) / 14
+        avg_l = sum(losses) / 14 or 0.001
+        rsi = 100 - 100 / (1 + avg_g / avg_l)
+
+        # RSI 信号
+        if rsi < 35:
+            tech_score += 15
+            tags.append("RSI超卖")
+        elif rsi < 45:
+            tech_score += 8
+        elif rsi > 65:
+            tech_score -= 15
+            tags.append("RSI超买")
+        elif rsi > 55:
+            tech_score -= 8
+
+        # 均线多空
+        if p > ma30 > ma90:
+            tech_score += 10
+            tags.append("均线多头")
+        elif p < ma30 < ma90:
+            tech_score -= 10
+            tags.append("均线空头")
+        elif p > ma30:
+            tech_score += 5
+        elif p < ma30:
+            tech_score -= 5
+
+        components["tech"] = max(-25, min(25, tech_score))
+    else:
+        components["tech"] = 0
+
+    # ── 2. 供给周期信号（±25分）────────────────────────────────
+    supply_score = 0
+    if supply_cycle > 1.03:
+        supply_score = min(25, int((supply_cycle - 1) * 200))  # +3%→+6分, +10%→+20分
+        tags.append("供给偏紧")
+    elif supply_cycle < 0.97:
+        supply_score = max(-25, int((supply_cycle - 1) * 200))
+        tags.append("供给释放")
+    components["supply"] = supply_score
+
+    # ── 3. 季节性信号（±15分）──────────────────────────────────
+    seasonal_score = 0
+    if seasonal > 1.03:
+        seasonal_score = 15
+        tags.append("青黄不接")
+    elif seasonal > 1.01:
+        seasonal_score = 8
+    elif seasonal < 0.97:
+        seasonal_score = -15
+        tags.append("产新压力")
+    elif seasonal < 0.99:
+        seasonal_score = -8
+    components["seasonal"] = seasonal_score
+
+    # ── 4. 事件驱动信号（±20分）────────────────────────────────
+    event_score = 0
+    if historical_weather > 1.05:
+        event_score = min(20, int((historical_weather - 1) * 150))
+        tags.append("利多事件")
+    elif historical_weather > 1.02:
+        event_score = min(10, int((historical_weather - 1) * 150))
+    elif historical_weather < 0.95:
+        event_score = max(-20, int((historical_weather - 1) * 150))
+        tags.append("利空事件")
+    elif historical_weather < 0.98:
+        event_score = max(-10, int((historical_weather - 1) * 150))
+    components["event"] = event_score
+
+    # ── 5. 价格历史分位信号（±15分）────────────────────────────
+    position_score = 0
+    hist_rows = conn.execute(
+        "SELECT price FROM estimated_daily_prices WHERE name=? ORDER BY date",
+        (herb_name,)
+    ).fetchall()
+    if hist_rows and len(hist_rows) >= 365:
+        all_prices = [r["price"] for r in hist_rows]
+        current = all_prices[-1]
+        # 近3年分位（避免太老的数据失真）
+        recent_3y = all_prices[-1095:] if len(all_prices) >= 1095 else all_prices
+        sorted_p = sorted(recent_3y)
+        n = len(sorted_p)
+        pct_rank = sum(1 for p in sorted_p if p <= current) / n  # 0~1
+
+        if pct_rank < 0.15:
+            position_score = 15
+            tags.append("历史低位")
+        elif pct_rank < 0.30:
+            position_score = 8
+            tags.append("偏低位置")
+        elif pct_rank > 0.85:
+            position_score = -15
+            tags.append("历史高位")
+        elif pct_rank > 0.70:
+            position_score = -8
+            tags.append("偏高位置")
+        components["position"] = position_score
+        components["pct_rank"] = round(pct_rank * 100, 1)  # 0~100
+    else:
+        components["position"] = 0
+
+    conn.close()
+
+    # ── 综合评分 ─────────────────────────────────────────────
+    total_score = sum(v for k, v in components.items() if k != "pct_rank")
+    total_score = max(-100, min(100, total_score))
+
+    # 标签
+    if total_score >= 45:
+        label = "强势"
+        label_en = "bullish"
+        color = "#22c55e"
+    elif total_score >= 15:
+        label = "偏强"
+        label_en = "mild_bullish"
+        color = "#86efac"
+    elif total_score >= -14:
+        label = "中性"
+        label_en = "neutral"
+        color = "#94a3b8"
+    elif total_score >= -44:
+        label = "偏弱"
+        label_en = "mild_bearish"
+        color = "#fca5a5"
+    else:
+        label = "弱势"
+        label_en = "bearish"
+        color = "#ef4444"
+
+    # 信号可靠性（有效信号越多越可靠）
+    active_signals = sum(1 for k, v in components.items()
+                         if k != "pct_rank" and abs(v) >= 5)
+    sig_confidence = min(0.9, 0.4 + active_signals * 0.12)
+
+    # 一句话概述
+    def _top_tags(n=2):
+        return "、".join(tags[:n]) if tags else "无明显驱动"
+
+    if total_score >= 15:
+        summary = f"多项信号看涨（{_top_tags()}），短中期价格上行概率较高"
+    elif total_score <= -15:
+        summary = f"多项信号看跌（{_top_tags()}），短中期价格承压概率较高"
+    else:
+        summary = f"信号分化（{_top_tags()}），短中期方向不明，建议观望"
+
+    return {
+        "label": label,
+        "labelEn": label_en,
+        "color": color,
+        "score": int(total_score),
+        "confidence": round(sig_confidence, 2),
+        "components": {
+            "tech": components.get("tech", 0),
+            "supply": components.get("supply", 0),
+            "seasonal": components.get("seasonal", 0),
+            "event": components.get("event", 0),
+            "position": components.get("position", 0),
+            "pctRank": components.get("pct_rank", 50.0),
+        },
+        "tags": tags,
+        "summary": summary,
+    }
+
+
 def get_price_adjustment(herb_name: str, events: list[dict] | None = None) -> dict:
     """综合计算价格调整因子
 
@@ -476,7 +687,17 @@ def get_price_adjustment(herb_name: str, events: list[dict] | None = None) -> di
     factor = max(0.75, min(1.40, factor))
     confidence = min(confidence, 0.95)
 
-    return {
+    # ── 方向置信度信号 ──────────────────────────────────────────────
+    # 汇总所有子因子的方向投票，生成"强势/弱势/中性"信号
+    signal = _calc_direction_signal(
+        herb_name=herb_name,
+        seasonal=seasonal,
+        supply_cycle=supply_cycle,
+        historical_weather=historical_weather,
+        factor=factor,
+    )
+
+    result = {
         "factor": round(factor, 4),
         "seasonal": round(seasonal, 4),
         "supply_cycle": round(supply_cycle, 4),
@@ -487,7 +708,9 @@ def get_price_adjustment(herb_name: str, events: list[dict] | None = None) -> di
         "harvest_months": get_harvest_months(herb_name),
         "reasons": reasons,
         "confidence": round(confidence, 2),
+        "signal": signal,
     }
+    return result
 
 
 if __name__ == "__main__":

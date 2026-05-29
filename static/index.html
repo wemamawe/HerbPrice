@@ -540,6 +540,51 @@
   ::-webkit-scrollbar-thumb { background: var(--bg-subtle); border-radius: 3px; }
   ::-webkit-scrollbar-thumb:hover { background: var(--text-muted); }
 
+  /* ── 方向信号面板 ── */
+  .signal-card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 14px 18px;
+    display: flex;
+    gap: 20px;
+    align-items: center;
+    animation: fadeIn 0.3s ease;
+  }
+  .signal-main { flex: 1; min-width: 0; }
+  .signal-label-row { display: flex; align-items: center; gap: 10px; margin-bottom: 6px; }
+  .signal-badge {
+    font-size: 13px; font-weight: 700; padding: 3px 10px;
+    border-radius: 20px; letter-spacing: 0.5px;
+  }
+  .signal-score { font-size: 13px; font-family: var(--font-mono); color: var(--text-secondary); }
+  .signal-conf  { font-size: 11px; color: var(--text-muted); }
+  .signal-summary { font-size: 13px; color: var(--text-secondary); line-height: 1.5; margin-bottom: 8px; }
+  .signal-tags { display: flex; flex-wrap: wrap; gap: 5px; }
+  .signal-tag {
+    font-size: 11px; padding: 2px 8px; border-radius: 4px;
+    background: rgba(255,255,255,0.05); color: var(--text-secondary); border: 1px solid var(--border);
+  }
+  .signal-bars { display: flex; flex-direction: column; gap: 7px; min-width: 180px; }
+  .signal-bar-row { display: flex; align-items: center; gap: 8px; }
+  .signal-bar-label { font-size: 11px; color: var(--text-muted); width: 38px; text-align: right; flex-shrink: 0; }
+  .signal-bar-track {
+    flex: 1; height: 6px; background: rgba(255,255,255,0.05);
+    border-radius: 3px; position: relative;
+  }
+  .signal-bar-fill {
+    position: absolute; top: 0; height: 100%; border-radius: 3px;
+    transition: width 0.5s ease;
+  }
+  .signal-bar-fill.pos { background: #22c55e; left: 50%; }
+  .signal-bar-fill.neg { background: #ef4444; right: 50%; }
+  .signal-bar-val { font-size: 11px; font-family: var(--font-mono); color: var(--text-muted); width: 30px; text-align: right; }
+  .signal-pct { text-align: center; min-width: 80px; flex-shrink: 0; }
+  .pct-label { font-size: 11px; color: var(--text-muted); margin-bottom: 6px; }
+  .pct-ring { position: relative; display: inline-flex; align-items: center; justify-content: center; }
+  .pct-value { position: absolute; font-size: 13px; font-weight: 700; font-family: var(--font-mono); }
+  .pct-hint  { font-size: 11px; color: var(--text-muted); margin-top: 4px; }
+
   /* ===== RESPONSIVE ===== */
   @media (max-width: 768px) {
     .app-layout { padding: 0 16px; }
@@ -663,6 +708,39 @@
         <div class="sub" id="sForecastRange">-</div>
       </div>
     </div>
+
+    <!-- 方向信号面板 -->
+    <div id="signalPanel" style="display:none; margin-top:12px">
+      <div class="signal-card">
+        <!-- 左：综合信号 -->
+        <div class="signal-main">
+          <div class="signal-label-row">
+            <span class="signal-badge" id="signalBadge">-</span>
+            <span class="signal-score" id="signalScore">-</span>
+            <span class="signal-conf" id="signalConf">-</span>
+          </div>
+          <div class="signal-summary" id="signalSummary">-</div>
+          <div class="signal-tags" id="signalTags"></div>
+        </div>
+        <!-- 右：雷达图各分项 -->
+        <div class="signal-bars" id="signalBars"></div>
+        <!-- 最右：历史分位 -->
+        <div class="signal-pct">
+          <div class="pct-label">历史分位</div>
+          <div class="pct-ring" id="pctRing">
+            <svg viewBox="0 0 60 60" width="64" height="64">
+              <circle cx="30" cy="30" r="24" fill="none" stroke="rgba(255,255,255,0.06)" stroke-width="6"/>
+              <circle id="pctArc" cx="30" cy="30" r="24" fill="none" stroke="#3b82f6"
+                      stroke-width="6" stroke-linecap="round"
+                      stroke-dasharray="150.8" stroke-dashoffset="150.8"
+                      transform="rotate(-90 30 30)"/>
+            </svg>
+            <span class="pct-value" id="pctValue">-</span>
+          </div>
+          <div class="pct-hint" id="pctHint">-</div>
+        </div>
+      </div>
+    </div>
   </div>
 
   <!-- 产地分布地图 -->
@@ -768,6 +846,88 @@ function selectVariety(name) {
   forecastBtn.classList.remove('active');
   loadChart();
   loadOriginMap(name);
+  loadSignal(name);
+}
+
+// ── 方向信号面板 ────────────────────────────────────────────
+async function loadSignal(name) {
+  const panel = document.getElementById('signalPanel');
+  panel.style.display = 'none';
+  try {
+    const resp = await fetch(`./api/forecast/factors?name=${encodeURIComponent(name)}`);
+    if (!resp.ok) return;
+    const data = await resp.json();
+    if (data.error || !data.signal) return;
+    renderSignal(data.signal);
+    panel.style.display = '';
+  } catch(e) { /* 静默失败 */ }
+}
+
+function renderSignal(sig) {
+  const badge = document.getElementById('signalBadge');
+  const score = document.getElementById('signalScore');
+  const conf  = document.getElementById('signalConf');
+  const summary = document.getElementById('signalSummary');
+  const tagsEl  = document.getElementById('signalTags');
+  const barsEl  = document.getElementById('signalBars');
+  const pctArc  = document.getElementById('pctArc');
+  const pctVal  = document.getElementById('pctValue');
+  const pctHint = document.getElementById('pctHint');
+
+  // 徽章
+  badge.textContent = sig.label;
+  badge.style.background = sig.color + '22';
+  badge.style.color = sig.color;
+  badge.style.border = `1px solid ${sig.color}44`;
+
+  // 分数 & 置信
+  const arrow = sig.score > 0 ? '▲' : (sig.score < 0 ? '▼' : '→');
+  score.textContent = `${arrow} ${sig.score > 0 ? '+' : ''}${sig.score}分`;
+  score.style.color = sig.score > 0 ? '#22c55e' : (sig.score < 0 ? '#ef4444' : '#94a3b8');
+  conf.textContent = `信号可靠度 ${Math.round(sig.confidence * 100)}%`;
+
+  summary.textContent = sig.summary;
+
+  // 标签
+  tagsEl.innerHTML = (sig.tags || []).map(t =>
+    `<span class="signal-tag">${t}</span>`
+  ).join('');
+
+  // 分项条形（最大幅度 ±25 映射到 50% 宽）
+  const bars = [
+    { key: 'tech',     label: '技术', max: 25 },
+    { key: 'supply',   label: '供给', max: 25 },
+    { key: 'seasonal', label: '季节', max: 15 },
+    { key: 'event',    label: '事件', max: 20 },
+    { key: 'position', label: '位置', max: 15 },
+  ];
+  const c = sig.components || {};
+  barsEl.innerHTML = bars.map(b => {
+    const val = c[b.key] || 0;
+    const pct = Math.min(50, Math.abs(val) / b.max * 50);
+    const cls = val >= 0 ? 'pos' : 'neg';
+    const valStr = `${val > 0 ? '+' : ''}${val}`;
+    return `<div class="signal-bar-row">
+      <div class="signal-bar-label">${b.label}</div>
+      <div class="signal-bar-track">
+        <div class="signal-bar-fill ${cls}" style="width:${pct}%"></div>
+        <div style="position:absolute;top:50%;left:50%;width:1px;height:10px;transform:translate(-50%,-50%);background:rgba(255,255,255,0.1)"></div>
+      </div>
+      <div class="signal-bar-val">${valStr}</div>
+    </div>`;
+  }).join('');
+
+  // 历史分位环
+  const pct = c.pctRank ?? 50;
+  const circumference = 2 * Math.PI * 24;  // r=24
+  const offset = circumference * (1 - pct / 100);
+  pctArc.style.strokeDashoffset = offset;
+  // 颜色：低位绿，中位蓝，高位红
+  const arcColor = pct < 30 ? '#22c55e' : (pct > 70 ? '#ef4444' : '#3b82f6');
+  pctArc.style.stroke = arcColor;
+  pctVal.textContent = `${Math.round(pct)}%`;
+  pctVal.style.color = arcColor;
+  pctHint.textContent = pct < 30 ? '历史低位' : (pct > 70 ? '历史高位' : '中等位置');
 }
 
 document.querySelectorAll('.preset-btn').forEach(btn => {
