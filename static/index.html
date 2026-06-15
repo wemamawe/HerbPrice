@@ -338,12 +338,8 @@
   .stat-card .value.purple { color: var(--violet); }
   .stat-card .sub { font-size: 11px; color: var(--text-muted); margin-top: 3px; font-family: var(--font-mono); }
 
-  /* Remove old color top-line */
-  .stat-card.c-blue::before,
-  .stat-card.c-red::before,
-  .stat-card.c-green::before,
-  .stat-card.c-orange::before,
-  .stat-card.c-purple::before { display: none; }
+  .stat-card .value.amber { color: var(--amber); }
+  .stat-card.c-amber::before { display: none; }
 
   .empty-state {
     display: flex; flex-direction: column; align-items: center; justify-content: center;
@@ -697,9 +693,29 @@
 
     <div class="stats" id="stats" style="display:none">
       <div class="stat-card c-blue"><div class="label">CURRENT</div><div class="value blue" id="sCurrent">-</div></div>
-      <div class="stat-card c-red"><div class="label">HIGH</div><div class="value red" id="sMax">-</div></div>
-      <div class="stat-card c-green"><div class="label">LOW</div><div class="value green" id="sMin">-</div></div>
+      <div class="stat-card c-red"><div class="label">HIGH (RANGE)</div><div class="value red" id="sMax">-</div></div>
+      <div class="stat-card c-green"><div class="label">LOW (RANGE)</div><div class="value green" id="sMin">-</div></div>
       <div class="stat-card"><div class="label">CHANGE</div><div class="value" id="sChange">-</div></div>
+      <div class="stat-card c-red">
+        <div class="label">ALL-TIME HIGH</div>
+        <div class="value red" id="sAllHigh">-</div>
+        <div class="sub" id="sAllHighDate">-</div>
+      </div>
+      <div class="stat-card c-green">
+        <div class="label">ALL-TIME LOW</div>
+        <div class="value green" id="sAllLow">-</div>
+        <div class="sub" id="sAllLowDate">-</div>
+      </div>
+      <div class="stat-card">
+        <div class="label">SPEC / STANDARD</div>
+        <div class="value" id="sStandard">-</div>
+        <div class="sub" id="sOriginInfo">-</div>
+      </div>
+      <div class="stat-card c-amber">
+        <div class="label">HARVEST</div>
+        <div class="value amber" id="sHarvest">-</div>
+        <div class="sub" id="sGrowthCycle">-</div>
+      </div>
       <div class="stat-card"><div class="label">DAYS</div><div class="value" id="sCount">-</div></div>
       <div class="stat-card c-orange"><div class="label">K-BIAS</div><div class="value orange" id="sKcv">-</div></div>
       <div class="stat-card c-purple" id="sForecastCard" style="display:none">
@@ -847,6 +863,47 @@ function selectVariety(name) {
   loadChart();
   loadOriginMap(name);
   loadSignal(name);
+  loadHerbDetail(name);
+}
+
+async function loadHerbDetail(name) {
+  try {
+    const resp = await fetch(`./api/herb_detail?name=${encodeURIComponent(name)}`);
+    const d = await resp.json();
+    if (d.error) return;
+
+    // 规格 + 产地
+    const stdText = (d.standards && d.standards.length) ? d.standards.join(' / ') : '-';
+    document.getElementById('sStandard').textContent = stdText;
+    const originText = (d.originsVar && d.originsVar.length) ? d.originsVar.slice(0, 3).join(' · ') : '-';
+    document.getElementById('sOriginInfo').textContent = originText;
+
+    // 历史最高价
+    if (d.allTimeHigh) {
+      document.getElementById('sAllHigh').textContent = `¥${d.allTimeHigh}`;
+      document.getElementById('sAllHighDate').textContent = d.allTimeHighDate ? d.allTimeHighDate.slice(0, 7) : '-';
+    }
+
+    // 历史最低价
+    if (d.allTimeLow) {
+      document.getElementById('sAllLow').textContent = `¥${d.allTimeLow}`;
+      document.getElementById('sAllLowDate').textContent = d.allTimeLowDate ? d.allTimeLowDate.slice(0, 7) : '-';
+    }
+
+    // 产新时间
+    if (d.harvestMonthNames && d.harvestMonthNames.length) {
+      document.getElementById('sHarvest').textContent = d.harvestMonthNames.join(' ');
+    } else {
+      document.getElementById('sHarvest').textContent = '未知';
+    }
+
+    // 种植周期
+    document.getElementById('sGrowthCycle').textContent = d.growthCycleYears
+      ? `${d.growthCycleYears}年生`
+      : '-';
+  } catch (e) {
+    // 静默失败
+  }
 }
 
 // ── 方向信号面板 ────────────────────────────────────────────
