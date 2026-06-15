@@ -115,6 +115,102 @@ def api_k_value():
     })
 
 
+@app.route("/api/herb_detail")
+def api_herb_detail():
+    """获取品种基础信息：规格、历史高低价、产新时间、种植周期、产地"""
+    name = request.args.get("name", "")
+    if not name:
+        return jsonify({"error": "缺少 name 参数"}), 400
+
+    conn = get_connection()
+
+    # 基础信息（varieties 有多行，聚合规格和产地）
+    variety_rows = conn.execute(
+        "SELECT standard, origin FROM varieties WHERE name = ?", (name,)
+    ).fetchall()
+    standards = sorted(set(r["standard"] for r in variety_rows if r["standard"]))
+    origins_var = sorted(set(r["origin"] for r in variety_rows if r["origin"]))
+
+    # 全历史最高/最低价（所有数据）
+    price_stats = conn.execute("""
+        SELECT ROUND(MIN(price), 2) as all_low, ROUND(MAX(price), 2) as all_high,
+               MIN(date) as earliest, MAX(date) as latest,
+               COUNT(*) as total_days
+        FROM estimated_daily_prices WHERE name = ?
+    """, (name,)).fetchone()
+
+    # 近1年高低价
+    price_1y = conn.execute("""
+        SELECT ROUND(MIN(price), 2) as low_1y, ROUND(MAX(price), 2) as high_1y
+        FROM estimated_daily_prices
+        WHERE name = ? AND date >= date('now', '-365 days')
+    """, (name,)).fetchone()
+
+    # 历史最高价对应日期
+    high_date = conn.execute("""
+        SELECT date FROM estimated_daily_prices
+        WHERE name = ? AND price = (SELECT MAX(price) FROM estimated_daily_prices WHERE name = ?)
+        LIMIT 1
+    """, (name, name)).fetchone()
+
+    # 历史最低价对应日期
+    low_date = conn.execute("""
+        SELECT date FROM estimated_daily_prices
+        WHERE name = ? AND price = (SELECT MIN(price) FROM estimated_daily_prices WHERE name = ?)
+        LIMIT 1
+    """, (name, name)).fetchone()
+
+    # 产地信息
+    origins = conn.execute("""
+        SELECT origin, province, is_daodi, annual_output_tons, output_percent
+        FROM herb_origins WHERE herb_name = ?
+        ORDER BY COALESCE(output_percent, 0) DESC, is_daodi DESC
+        LIMIT 6
+    """, (name,)).fetchall()
+
+    conn.close()
+
+    # 产新时间和种植周期（来自 forecast_factors）
+    try:
+        from forecast_factors import get_harvest_months, get_growth_cycle
+        harvest_months = get_harvest_months(name)
+        growth_cycle = get_growth_cycle(name)
+    except Exception:
+        harvest_months = []
+        growth_cycle = None
+
+    month_names = ["", "一", "二", "三", "四", "五", "六", "七", "八", "九", "十", "十一", "十二"]
+
+    has_price_data = price_stats and price_stats["total_days"] and price_stats["total_days"] > 0
+
+    result = {
+        "name": name,
+        "standards": standards,
+        "originsVar": origins_var,
+        "allTimeHigh": price_stats["all_high"] if has_price_data else None,
+        "allTimeLow": price_stats["all_low"] if has_price_data else None,
+        "allTimeHighDate": high_date["date"] if high_date else None,
+        "allTimeLowDate": low_date["date"] if low_date else None,
+        "high1y": price_1y["high_1y"] if price_1y and price_1y["high_1y"] else None,
+        "low1y": price_1y["low_1y"] if price_1y and price_1y["low_1y"] else None,
+        "earliestDate": price_stats["earliest"] if has_price_data else None,
+        "totalDays": price_stats["total_days"] if has_price_data else 0,
+        "harvestMonths": harvest_months,
+        "harvestMonthNames": [f"{month_names[m]}月" for m in harvest_months if 1 <= m <= 12],
+        "growthCycleYears": growth_cycle,
+        "origins": [
+            {
+                "origin": r["origin"],
+                "province": r["province"],
+                "isDaodi": bool(r["is_daodi"]),
+                "outputTons": r["annual_output_tons"],
+                "outputPct": r["output_percent"],
+            } for r in origins
+        ],
+    }
+    return jsonify(result)
+
+
 @app.route("/api/forecast")
 def api_forecast():
     """预测指定品种未来半年的价格趋势"""
